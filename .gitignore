@@ -1,7 +1,7 @@
 .idea/
 .sisyphus/
 .DS_Store
-rillan
+/rillan
 coverage.out
 *.cover
 testdata/tmp/
