@@ -9,11 +9,24 @@ import (
 
 type Verdict string
 
+type EvaluationPhase string
+
+type DecisionSource string
+
 const (
 	VerdictAllow     Verdict = "allow"
 	VerdictRedact    Verdict = "redact"
 	VerdictBlock     Verdict = "block"
 	VerdictLocalOnly Verdict = "local_only"
+
+	EvaluationPhasePreflight EvaluationPhase = "preflight"
+	EvaluationPhaseEgress    EvaluationPhase = "egress"
+
+	DecisionSourceDefault    DecisionSource = "default"
+	DecisionSourceProject    DecisionSource = "project"
+	DecisionSourceSystem     DecisionSource = "system"
+	DecisionSourceClassifier DecisionSource = "classifier"
+	DecisionSourceScan       DecisionSource = "scan"
 )
 
 type FindingAction string
@@ -75,22 +88,92 @@ type IntentClassification struct {
 	Confidence      float64
 }
 
+type RuntimePolicy struct {
+	Project                  config.ProjectConfig
+	ForceLocalForTradeSecret bool
+	MinimizeRemoteContext    bool
+	RemoteRetrievalTopK      int
+	RemoteMaxContextChars    int
+	Trace                    RuntimePolicyTrace
+}
+
+type RuntimePolicyTrace struct {
+	ProjectClassificationSource    DecisionSource
+	ForceLocalForTradeSecretSource DecisionSource
+}
+
+type PolicyTrace struct {
+	Phase       EvaluationPhase
+	RouteSource DecisionSource
+}
+
+type RetrievalPlan struct {
+	Apply           bool
+	TopKCap         int
+	MaxContextChars int
+	Source          DecisionSource
+}
+
 type EvaluationInput struct {
 	Project        config.ProjectConfig
+	Runtime        RuntimePolicy
 	Request        internalopenai.ChatCompletionRequest
 	Body           []byte
 	Scan           ScanResult
 	Classification *IntentClassification
+	Phase          EvaluationPhase
 }
 
 type EvaluationResult struct {
-	Verdict  Verdict
-	Reason   string
-	Request  internalopenai.ChatCompletionRequest
-	Body     []byte
-	Findings []Finding
+	Verdict   Verdict
+	Reason    string
+	Request   internalopenai.ChatCompletionRequest
+	Body      []byte
+	Findings  []Finding
+	Trace     PolicyTrace
+	Retrieval RetrievalPlan
 }
 
 type Evaluator interface {
 	Evaluate(ctx context.Context, input EvaluationInput) (EvaluationResult, error)
+}
+
+func MergeRuntimePolicy(system *config.SystemConfig, project config.ProjectConfig) RuntimePolicy {
+	runtime := RuntimePolicy{
+		Project:               cloneProjectConfig(project),
+		MinimizeRemoteContext: true,
+		RemoteRetrievalTopK:   2,
+		RemoteMaxContextChars: 1200,
+		Trace: RuntimePolicyTrace{
+			ProjectClassificationSource:    DecisionSourceDefault,
+			ForceLocalForTradeSecretSource: DecisionSourceDefault,
+		},
+	}
+
+	if runtime.Project.Classification != "" {
+		runtime.Trace.ProjectClassificationSource = DecisionSourceProject
+	}
+	if system != nil && system.Policy.Rules.ForceLocalForTradeSecret {
+		runtime.ForceLocalForTradeSecret = true
+		runtime.Trace.ForceLocalForTradeSecretSource = DecisionSourceSystem
+	}
+
+	return runtime
+}
+
+func cloneProjectConfig(project config.ProjectConfig) config.ProjectConfig {
+	cloned := project
+	if project.Sources != nil {
+		cloned.Sources = append([]config.ProjectSource(nil), project.Sources...)
+	}
+	if project.Instructions != nil {
+		cloned.Instructions = append([]string(nil), project.Instructions...)
+	}
+	if project.Routing.TaskTypes != nil {
+		cloned.Routing.TaskTypes = make(map[string]string, len(project.Routing.TaskTypes))
+		for key, value := range project.Routing.TaskTypes {
+			cloned.Routing.TaskTypes[key] = value
+		}
+	}
+	return cloned
 }

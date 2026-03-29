@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/sidekickos/rillan/internal/audit"
 	"github.com/sidekickos/rillan/internal/classify"
 	"github.com/sidekickos/rillan/internal/config"
 	"github.com/sidekickos/rillan/internal/httpapi"
@@ -17,15 +18,17 @@ import (
 )
 
 type App struct {
-	addr              string
-	configPath        string
-	projectConfigPath string
-	logger            *slog.Logger
-	provider          providers.Provider
-	server            *http.Server
+	addr               string
+	configPath         string
+	projectConfigPath  string
+	systemConfigPath   string
+	systemConfigLoaded bool
+	logger             *slog.Logger
+	provider           providers.Provider
+	server             *http.Server
 }
 
-func New(cfg config.Config, project config.ProjectConfig, configPath string, projectConfigPath string, logger *slog.Logger) (*App, error) {
+func New(cfg config.Config, project config.ProjectConfig, system *config.SystemConfig, configPath string, projectConfigPath string, systemConfigPath string, logger *slog.Logger) (*App, error) {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -37,8 +40,22 @@ func New(cfg config.Config, project config.ProjectConfig, configPath string, pro
 
 	var routerOpts httpapi.RouterOptions
 	routerOpts.ProjectConfig = project
+	routerOpts.SystemConfig = system
+	routerOpts.SystemConfigLoaded = system != nil
+	auditStore, err := audit.NewStore(audit.DefaultLedgerPath())
+	if err != nil {
+		return nil, err
+	}
+	routerOpts.AuditLedgerPath = auditStore.Path()
+	routerOpts.AuditRecorder = auditStore
 	routerOpts.PolicyEvaluator = policy.NewEvaluator()
 	routerOpts.PolicyScanner = policy.DefaultScanner()
+	if cfg.Retrieval.Enabled {
+		routerOpts.RetrievalMode = "targeted_remote"
+	} else {
+		routerOpts.RetrievalMode = "disabled"
+	}
+	routerOpts.LocalModelRequired = cfg.LocalModel.Enabled
 
 	if cfg.LocalModel.Enabled {
 		ollamaClient := ollama.New(cfg.LocalModel.BaseURL, &http.Client{})
@@ -68,12 +85,14 @@ func New(cfg config.Config, project config.ProjectConfig, configPath string, pro
 	}
 
 	return &App{
-		addr:              addr,
-		configPath:        configPath,
-		projectConfigPath: projectConfigPath,
-		logger:            logger,
-		provider:          provider,
-		server:            server,
+		addr:               addr,
+		configPath:         configPath,
+		projectConfigPath:  projectConfigPath,
+		systemConfigPath:   systemConfigPath,
+		systemConfigLoaded: system != nil,
+		logger:             logger,
+		provider:           provider,
+		server:             server,
 	}, nil
 }
 
@@ -82,6 +101,8 @@ func (a *App) Run(ctx context.Context) error {
 		"addr", a.addr,
 		"config_path", a.configPath,
 		"project_config_path", a.projectConfigPath,
+		"system_config_path", a.systemConfigPath,
+		"system_config_loaded", a.systemConfigLoaded,
 		"provider", a.provider.Name(),
 	)
 

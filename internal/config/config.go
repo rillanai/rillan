@@ -6,6 +6,11 @@ const (
 	ProviderOpenAI    = "openai"
 	ProviderAnthropic = "anthropic"
 
+	SystemConfigVersion           = "m06"
+	SystemEncryptionKeyringAESGCM = "keyring_aes_gcm"
+	DefaultSystemKeyringService   = "rillan/system-policy"
+	DefaultSystemKeyringAccount   = "machine-default"
+
 	ProjectClassificationOpenSource  = "open_source"
 	ProjectClassificationInternal    = "internal"
 	ProjectClassificationProprietary = "proprietary"
@@ -24,6 +29,38 @@ type Config struct {
 	Retrieval  RetrievalConfig  `yaml:"retrieval"`
 	Runtime    RuntimeConfig    `yaml:"runtime"`
 	LocalModel LocalModelConfig `yaml:"local_model"`
+}
+
+type SystemConfig struct {
+	Version          string                 `yaml:"version"`
+	Encryption       SystemEncryptionConfig `yaml:"encryption"`
+	EncryptedPayload string                 `yaml:"encrypted_payload"`
+	Policy           SystemPolicy           `yaml:"-"`
+}
+
+type SystemEncryptionConfig struct {
+	Method         string `yaml:"method"`
+	KeyringService string `yaml:"keyring_service"`
+	KeyringAccount string `yaml:"keyring_account"`
+}
+
+type SystemPolicy struct {
+	Identity SystemIdentityRules
+	Rules    SystemPolicyRules
+}
+
+type SystemIdentityRules struct {
+	People             []string
+	Employers          []string
+	PIIPatterns        []string
+	CredentialPatterns []string
+}
+
+type SystemPolicyRules struct {
+	MaskPIIForRemote          bool
+	StripEmployerReferences   bool
+	ForceLocalForTradeSecret  bool
+	BlockRemoteOnPCIArtifacts bool
 }
 
 type ProjectConfig struct {
@@ -157,6 +194,17 @@ func DefaultProjectConfig() ProjectConfig {
 			TaskTypes: map[string]string{},
 		},
 		Instructions: []string{},
+	}
+}
+
+func DefaultSystemConfig() SystemConfig {
+	return SystemConfig{
+		Version: SystemConfigVersion,
+		Encryption: SystemEncryptionConfig{
+			Method:         SystemEncryptionKeyringAESGCM,
+			KeyringService: DefaultSystemKeyringService,
+			KeyringAccount: DefaultSystemKeyringAccount,
+		},
 	}
 }
 

@@ -95,6 +95,90 @@ func TestDefaultEvaluatorEvaluate(t *testing.T) {
 	}
 }
 
+func TestMergeRuntimePolicyClonesProjectConfig(t *testing.T) {
+	t.Parallel()
+
+	project := config.ProjectConfig{
+		Name:           "demo",
+		Classification: config.ProjectClassificationInternal,
+		Routing: config.ProjectRoutingConfig{
+			Default:   config.RoutePreferencePreferCloud,
+			TaskTypes: map[string]string{"review": config.RoutePreferencePreferLocal},
+		},
+		Instructions: []string{"one"},
+		Sources:      []config.ProjectSource{{Path: "/repo", Type: "go"}},
+	}
+
+	runtime := MergeRuntimePolicy(nil, project)
+	runtime.Project.Routing.TaskTypes["review"] = config.RoutePreferenceLocalOnly
+	runtime.Project.Instructions[0] = "changed"
+	runtime.Project.Sources[0].Path = "/other"
+
+	if got, want := project.Routing.TaskTypes["review"], config.RoutePreferencePreferLocal; got != want {
+		t.Fatalf("original task route = %q, want %q", got, want)
+	}
+	if got, want := project.Instructions[0], "one"; got != want {
+		t.Fatalf("original instruction = %q, want %q", got, want)
+	}
+	if got, want := project.Sources[0].Path, "/repo"; got != want {
+		t.Fatalf("original source path = %q, want %q", got, want)
+	}
+}
+
+func TestDefaultEvaluatorSystemRuleCanOverrideTierOneRouting(t *testing.T) {
+	t.Parallel()
+
+	evaluator := NewEvaluator()
+	project := config.ProjectConfig{Name: "demo", Classification: config.ProjectClassificationOpenSource}
+	system := &config.SystemConfig{Policy: config.SystemPolicy{Rules: config.SystemPolicyRules{ForceLocalForTradeSecret: true}}}
+
+	result, err := evaluator.Evaluate(context.Background(), EvaluationInput{
+		Runtime:        MergeRuntimePolicy(system, project),
+		Body:           []byte(`{"messages":[{"role":"user","content":"ship it"}]}`),
+		Classification: &IntentClassification{Sensitivity: SensitivityTradeSecret},
+		Scan:           ScanResult{RedactedBody: []byte(`{"messages":[{"role":"user","content":"ship it"}]}`)},
+		Phase:          EvaluationPhasePreflight,
+	})
+	if err != nil {
+		t.Fatalf("Evaluate returned error: %v", err)
+	}
+	if got, want := result.Verdict, VerdictLocalOnly; got != want {
+		t.Fatalf("verdict = %q, want %q", got, want)
+	}
+	if got, want := result.Reason, "system_trade_secret"; got != want {
+		t.Fatalf("reason = %q, want %q", got, want)
+	}
+	if got, want := result.Trace.RouteSource, DecisionSourceSystem; got != want {
+		t.Fatalf("route source = %q, want %q", got, want)
+	}
+}
+
+func TestDefaultEvaluatorPreflightAppliesRetrievalMinimization(t *testing.T) {
+	t.Parallel()
+
+	evaluator := NewEvaluator()
+	project := config.ProjectConfig{Name: "demo", Classification: config.ProjectClassificationOpenSource}
+
+	result, err := evaluator.Evaluate(context.Background(), EvaluationInput{
+		Runtime: MergeRuntimePolicy(nil, project),
+		Body:    []byte(`{"messages":[{"role":"user","content":"explain this repo"}]}`),
+		Scan:    ScanResult{RedactedBody: []byte(`{"messages":[{"role":"user","content":"explain this repo"}]}`)},
+		Phase:   EvaluationPhasePreflight,
+	})
+	if err != nil {
+		t.Fatalf("Evaluate returned error: %v", err)
+	}
+	if !result.Retrieval.Apply {
+		t.Fatal("expected retrieval plan to apply in preflight")
+	}
+	if got, want := result.Retrieval.TopKCap, 2; got != want {
+		t.Fatalf("retrieval top_k cap = %d, want %d", got, want)
+	}
+	if got, want := result.Retrieval.MaxContextChars, 1200; got != want {
+		t.Fatalf("retrieval max_context_chars = %d, want %d", got, want)
+	}
+}
+
 func containsString(value string, substring string) bool {
 	return len(substring) == 0 || strings.Contains(value, substring)
 }

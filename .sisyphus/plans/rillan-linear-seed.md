@@ -22,7 +22,7 @@ This document is the issue-ready internal backlog for seeding a future `Sidekick
 | M03 - Retrieval and Context Compilation | **Done** | Pipeline, context compiler, debug headers, per-request overrides |
 | M04 - Local Model Helpers | **Done** | Ollama client, real embeddings, query rewriting, health/status verified |
 | M05 - Intent Classification and Policy | Not started | |
-| M06 - Security and Packaging Hardening | Not started | |
+| M06 - Security and Packaging Hardening | In progress | Parts 1-2 implemented; packaging artifacts/docs landed; real platform service validation remains |
 | M07 - Agent Runtime | Not started | Post-v1 evolution |
 | OSS Readiness | Not started | Can run in parallel with M04+ |
 
@@ -180,7 +180,20 @@ Definition of done:
 
 ### Milestone 06 - Security Hardening and Packaging
 
+Canonical plan: `.sisyphus/plans/rillan-milestone-06.md`
+
+Execution shape in canonical plan:
+- Part 1 — complete the security foundation
+- Part 2 — minimize and trace remote egress
+- Part 3 — package durable local services
+
 Goal: complete the tiered security model and make local deployment durable on macOS and Linux.
+
+Current status:
+
+- Part 1 implemented in code: tier-0 encrypted system-config envelope, tier-2 runtime merge, and request-scoped policy trace surface
+- Part 2 implemented in code: targeted remote retrieval minimization, append-only audit ledger, and expanded runtime readiness/status reporting
+- Part 3 implemented as packaging artifacts and validation docs/scripts, but not yet fully proven through live `launchd` and `systemd --user` install/start/stop runs on target OSes
 
 Issues:
 

@@ -1,8 +1,11 @@
 package config
 
 import (
+	"encoding/hex"
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -196,6 +199,9 @@ func TestDefaultPathsAreNonEmpty(t *testing.T) {
 	if DefaultConfigPath() == "" {
 		t.Fatal("DefaultConfigPath returned empty string")
 	}
+	if DefaultSystemConfigPath() == "" {
+		t.Fatal("DefaultSystemConfigPath returned empty string")
+	}
 	if DefaultDataDir() == "" {
 		t.Fatal("DefaultDataDir returned empty string")
 	}
@@ -268,6 +274,105 @@ func TestLoadProjectRejectsInvalidProjectConfig(t *testing.T) {
 	}
 }
 
+func TestLoadSystemAppliesDefaults(t *testing.T) {
+	key := []byte("0123456789abcdef0123456789abcdef")
+	payload, err := encryptSystemPolicyPayload(SystemPolicy{
+		Identity: SystemIdentityRules{People: []string{"alice@example.com"}},
+		Rules:    SystemPolicyRules{MaskPIIForRemote: true},
+	}, key, strings.NewReader("123456789012"))
+	if err != nil {
+		t.Fatalf("encryptSystemPolicyPayload returned error: %v", err)
+	}
+	withSystemKeyringGet(t, func(service, account string) (string, error) {
+		return hex.EncodeToString(key), nil
+	})
+
+	systemPath := writeTempSystemConfig(t, "encrypted_payload: \""+payload+"\"\n")
+
+	cfg, err := LoadSystem(systemPath)
+	if err != nil {
+		t.Fatalf("LoadSystem returned error: %v", err)
+	}
+
+	if got, want := cfg.Version, SystemConfigVersion; got != want {
+		t.Fatalf("version = %q, want %q", got, want)
+	}
+	if got, want := cfg.Encryption.Method, SystemEncryptionKeyringAESGCM; got != want {
+		t.Fatalf("encryption.method = %q, want %q", got, want)
+	}
+	if got, want := cfg.Encryption.KeyringService, DefaultSystemKeyringService; got != want {
+		t.Fatalf("keyring_service = %q, want %q", got, want)
+	}
+	if got, want := cfg.Encryption.KeyringAccount, DefaultSystemKeyringAccount; got != want {
+		t.Fatalf("keyring_account = %q, want %q", got, want)
+	}
+	if got, want := cfg.Policy.Identity.People[0], "alice@example.com"; got != want {
+		t.Fatalf("policy identity = %q, want %q", got, want)
+	}
+}
+
+func TestLoadSystemRejectsPlaintextPolicyData(t *testing.T) {
+	systemPath := writeTempSystemConfig(t, "identity:\n  people:\n    - \"name@example.com\"\nencrypted_payload: \"ciphertext\"\n")
+
+	if _, err := LoadSystem(systemPath); err == nil {
+		t.Fatal("expected plaintext system data to fail")
+	}
+}
+
+func TestLoadSystemRejectsMalformedYAML(t *testing.T) {
+	systemPath := writeTempSystemConfig(t, "version: [oops\n")
+
+	if _, err := LoadSystem(systemPath); err == nil {
+		t.Fatal("expected malformed system YAML to fail")
+	}
+}
+
+func TestLoadSystemRejectsWrongKey(t *testing.T) {
+	key := []byte("0123456789abcdef0123456789abcdef")
+	payload, err := encryptSystemPolicyPayload(SystemPolicy{Rules: SystemPolicyRules{MaskPIIForRemote: true}}, key, strings.NewReader("123456789012"))
+	if err != nil {
+		t.Fatalf("encryptSystemPolicyPayload returned error: %v", err)
+	}
+	withSystemKeyringGet(t, func(service, account string) (string, error) {
+		return hex.EncodeToString([]byte("abcdef0123456789abcdef0123456789")), nil
+	})
+
+	systemPath := writeTempSystemConfig(t, "encrypted_payload: \""+payload+"\"\n")
+	if _, err := LoadSystem(systemPath); err == nil {
+		t.Fatal("expected wrong key to fail decryption")
+	}
+}
+
+func TestLoadSystemRejectsMalformedCiphertext(t *testing.T) {
+	withSystemKeyringGet(t, func(service, account string) (string, error) {
+		return hex.EncodeToString([]byte("0123456789abcdef0123456789abcdef")), nil
+	})
+
+	systemPath := writeTempSystemConfig(t, "encrypted_payload: \"not-base64\"\n")
+	if _, err := LoadSystem(systemPath); err == nil {
+		t.Fatal("expected malformed ciphertext to fail")
+	}
+}
+
+func TestLoadSystemMissingReturnsNotExist(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), ".sidekick", "system.yaml")
+
+	if _, err := LoadSystem(missing); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("LoadSystem error = %v, want os.ErrNotExist", err)
+	}
+}
+
+func TestLoadSystemRejectsMissingKeyringMaterial(t *testing.T) {
+	withSystemKeyringGet(t, func(service, account string) (string, error) {
+		return "", errors.New("missing")
+	})
+
+	systemPath := writeTempSystemConfig(t, "encrypted_payload: \"Y2lwaGVydGV4dA==\"\n")
+	if _, err := LoadSystem(systemPath); err == nil {
+		t.Fatal("expected missing keyring material to fail")
+	}
+}
+
 func writeTempConfig(t *testing.T, content string) string {
 	t.Helper()
 
@@ -294,4 +399,29 @@ func writeTempProjectConfig(t *testing.T, content string) string {
 	}
 
 	return path
+}
+
+func writeTempSystemConfig(t *testing.T, content string) string {
+	t.Helper()
+
+	dir := filepath.Join(t.TempDir(), ".sidekick")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir temp system dir: %v", err)
+	}
+
+	path := filepath.Join(dir, "system.yaml")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write temp system config: %v", err)
+	}
+
+	return path
+}
+
+func withSystemKeyringGet(t *testing.T, fn func(service, account string) (string, error)) {
+	t.Helper()
+	original := systemKeyringGet
+	systemKeyringGet = fn
+	t.Cleanup(func() {
+		systemKeyringGet = original
+	})
 }

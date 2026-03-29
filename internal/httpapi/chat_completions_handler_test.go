@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sidekickos/rillan/internal/audit"
 	"github.com/sidekickos/rillan/internal/config"
 	"github.com/sidekickos/rillan/internal/index"
 	internalopenai "github.com/sidekickos/rillan/internal/openai"
@@ -293,6 +294,133 @@ func TestChatCompletionsHandlerClassifierCanForceLocalOnly(t *testing.T) {
 	}
 	if got := provider.called; got != 0 {
 		t.Fatalf("provider calls = %d, want 0", got)
+	}
+}
+
+func TestChatCompletionsHandlerSystemPolicyCanForceLocalOnly(t *testing.T) {
+	provider := &fakeProvider{}
+	handler := NewChatCompletionsHandler(
+		slog.Default(),
+		provider,
+		nil,
+		WithProjectConfig(config.ProjectConfig{Name: "demo", Classification: config.ProjectClassificationOpenSource}),
+		WithSystemConfig(&config.SystemConfig{Policy: config.SystemPolicy{Rules: config.SystemPolicyRules{ForceLocalForTradeSecret: true}}}),
+		WithClassifier(staticClassifier{classification: &policy.IntentClassification{Sensitivity: policy.SensitivityTradeSecret}}),
+	)
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-4o-mini","messages":[{"role":"user","content":"ping"}]}`))
+
+	handler.ServeHTTP(recorder, request)
+
+	if got, want := recorder.Code, http.StatusForbidden; got != want {
+		t.Fatalf("status = %d, want %d", got, want)
+	}
+	if got := provider.called; got != 0 {
+		t.Fatalf("provider calls = %d, want 0", got)
+	}
+}
+
+func TestChatCompletionsHandlerPreflightCapsRemoteRetrieval(t *testing.T) {
+	chunks := make([]index.ChunkRecord, 0, 3)
+	for i := 0; i < 3; i++ {
+		chunks = append(chunks, index.ChunkRecord{
+			ID:           "chunk-" + strconv.Itoa(i),
+			DocumentPath: "docs/context-" + strconv.Itoa(i) + ".md",
+			Ordinal:      i,
+			StartLine:    1,
+			EndLine:      2,
+			Content:      "retrieval should stay bounded for remote egress",
+			ContentHash:  "hash-" + strconv.Itoa(i),
+		})
+	}
+	dbPath := filepath.Join(t.TempDir(), "index.db")
+	seedHandlerStore(t, dbPath, chunks)
+
+	provider := &fakeProvider{}
+	pipeline := retrieval.NewPipeline(config.RetrievalConfig{Enabled: true, TopK: 4, MaxContextChars: 4000}, dbPath)
+	handler := NewChatCompletionsHandler(slog.Default(), provider, pipeline)
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-4o-mini","messages":[{"role":"user","content":"bounded retrieval please"}]}`))
+
+	handler.ServeHTTP(recorder, request)
+
+	if got, want := recorder.Code, http.StatusOK; got != want {
+		t.Fatalf("status = %d, want %d", got, want)
+	}
+	if got, want := recorder.Header().Get(headerRetrievalTopK), "2"; got != want {
+		t.Fatalf("%s = %q, want %q", headerRetrievalTopK, got, want)
+	}
+	if got, want := recorder.Header().Get(headerRetrievalSources), "2"; got != want {
+		t.Fatalf("%s = %q, want %q", headerRetrievalSources, got, want)
+	}
+}
+
+func TestChatCompletionsHandlerRecordsRemoteEgressAuditEvent(t *testing.T) {
+	store, err := audit.NewStore(filepath.Join(t.TempDir(), "audit", "ledger.jsonl"))
+	if err != nil {
+		t.Fatalf("NewStore returned error: %v", err)
+	}
+
+	provider := &fakeProvider{}
+	handler := NewChatCompletionsHandler(
+		slog.Default(),
+		provider,
+		nil,
+		WithAuditRecorder(store),
+	)
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-4o-mini","messages":[{"role":"user","content":"ping"}]}`))
+
+	handler.ServeHTTP(recorder, request)
+
+	events, err := store.ReadAll(context.Background())
+	if err != nil {
+		t.Fatalf("ReadAll returned error: %v", err)
+	}
+	if got, want := len(events), 1; got != want {
+		t.Fatalf("events = %d, want %d", got, want)
+	}
+	if got, want := events[0].Type, audit.EventTypeRemoteEgress; got != want {
+		t.Fatalf("event type = %q, want %q", got, want)
+	}
+	if events[0].OutboundSHA256 == "" {
+		t.Fatal("expected outbound hash to be recorded")
+	}
+	if strings.Contains(events[0].OutboundSHA256, "ping") {
+		t.Fatal("outbound hash should not contain raw payload")
+	}
+}
+
+func TestChatCompletionsHandlerRecordsRemoteDenyAuditEvent(t *testing.T) {
+	store, err := audit.NewStore(filepath.Join(t.TempDir(), "audit", "ledger.jsonl"))
+	if err != nil {
+		t.Fatalf("NewStore returned error: %v", err)
+	}
+
+	provider := &fakeProvider{}
+	handler := NewChatCompletionsHandler(
+		slog.Default(),
+		provider,
+		nil,
+		WithAuditRecorder(store),
+	)
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-4o-mini","messages":[{"role":"user","content":"-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----"}]}`))
+
+	handler.ServeHTTP(recorder, request)
+
+	events, err := store.ReadAll(context.Background())
+	if err != nil {
+		t.Fatalf("ReadAll returned error: %v", err)
+	}
+	if got, want := len(events), 1; got != want {
+		t.Fatalf("events = %d, want %d", got, want)
+	}
+	if got, want := events[0].Type, audit.EventTypeRemoteDeny; got != want {
+		t.Fatalf("event type = %q, want %q", got, want)
+	}
+	if got, want := events[0].Verdict, string(policy.VerdictBlock); got != want {
+		t.Fatalf("verdict = %q, want %q", got, want)
 	}
 }
 

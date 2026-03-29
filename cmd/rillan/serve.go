@@ -32,8 +32,19 @@ func newServeCommand() *cobra.Command {
 				}
 			}
 
+			systemConfigPath := config.DefaultSystemConfigPath()
+			var systemCfg *config.SystemConfig
+			loadedSystemCfg, err := config.LoadSystem(systemConfigPath)
+			if err != nil {
+				if !errors.Is(err, os.ErrNotExist) {
+					return err
+				}
+			} else {
+				systemCfg = &loadedSystemCfg
+			}
+
 			logger := newLogger(cfg.Server.LogLevel)
-			application, err := app.New(cfg, projectCfg, configPath, projectConfigPath, logger)
+			application, err := app.New(cfg, projectCfg, systemCfg, configPath, projectConfigPath, systemConfigPath, logger)
 			if err != nil {
 				return err
 			}

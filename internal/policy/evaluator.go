@@ -15,15 +15,29 @@ func NewEvaluator() *DefaultEvaluator {
 }
 
 func (e *DefaultEvaluator) Evaluate(_ context.Context, input EvaluationInput) (EvaluationResult, error) {
+	runtimePolicy := input.Runtime
+	if runtimePolicy.Project.Name == "" && runtimePolicy.Project.Classification == "" {
+		runtimePolicy = MergeRuntimePolicy(nil, input.Project)
+	}
+	phase := input.Phase
+	if phase == "" {
+		phase = EvaluationPhaseEgress
+	}
+
 	result := EvaluationResult{
 		Verdict:  VerdictAllow,
 		Reason:   "policy_allow",
 		Request:  input.Request,
 		Body:     append([]byte(nil), input.Body...),
 		Findings: append([]Finding(nil), input.Scan.Findings...),
+		Trace: PolicyTrace{
+			Phase:       phase,
+			RouteSource: DecisionSourceDefault,
+		},
+		Retrieval: RetrievalPlan{Source: DecisionSourceDefault},
 	}
 
-	classification := normalizePolicyString(input.Project.Classification)
+	classification := normalizePolicyString(runtimePolicy.Project.Classification)
 	if classification == "" {
 		classification = config.ProjectClassificationOpenSource
 	}
@@ -31,7 +45,20 @@ func (e *DefaultEvaluator) Evaluate(_ context.Context, input EvaluationInput) (E
 	if input.Scan.HasBlockingFindings {
 		result.Verdict = VerdictBlock
 		result.Reason = "secret_scan_block"
+		result.Trace.RouteSource = DecisionSourceScan
 		if len(input.Scan.RedactedBody) > 0 {
+			if err := syncRequestFromBody(&result, input.Scan.RedactedBody); err != nil {
+				return EvaluationResult{}, err
+			}
+		}
+		return result, nil
+	}
+
+	if runtimePolicy.ForceLocalForTradeSecret && input.Classification != nil && input.Classification.Sensitivity == SensitivityTradeSecret {
+		result.Verdict = VerdictLocalOnly
+		result.Reason = "system_trade_secret"
+		result.Trace.RouteSource = runtimePolicy.Trace.ForceLocalForTradeSecretSource
+		if len(input.Scan.RedactedBody) > 0 && len(input.Scan.Findings) > 0 {
 			if err := syncRequestFromBody(&result, input.Scan.RedactedBody); err != nil {
 				return EvaluationResult{}, err
 			}
@@ -42,6 +69,7 @@ func (e *DefaultEvaluator) Evaluate(_ context.Context, input EvaluationInput) (E
 	if input.Classification != nil && input.Classification.Sensitivity == SensitivityTradeSecret {
 		result.Verdict = VerdictLocalOnly
 		result.Reason = "classifier_trade_secret"
+		result.Trace.RouteSource = DecisionSourceClassifier
 		if len(input.Scan.RedactedBody) > 0 && len(input.Scan.Findings) > 0 {
 			if err := syncRequestFromBody(&result, input.Scan.RedactedBody); err != nil {
 				return EvaluationResult{}, err
@@ -53,6 +81,7 @@ func (e *DefaultEvaluator) Evaluate(_ context.Context, input EvaluationInput) (E
 	if classification == config.ProjectClassificationTradeSecret {
 		result.Verdict = VerdictLocalOnly
 		result.Reason = "project_trade_secret"
+		result.Trace.RouteSource = runtimePolicy.Trace.ProjectClassificationSource
 		if len(input.Scan.RedactedBody) > 0 && len(input.Scan.Findings) > 0 {
 			if err := syncRequestFromBody(&result, input.Scan.RedactedBody); err != nil {
 				return EvaluationResult{}, err
@@ -64,10 +93,20 @@ func (e *DefaultEvaluator) Evaluate(_ context.Context, input EvaluationInput) (E
 	if len(input.Scan.Findings) > 0 {
 		result.Verdict = VerdictRedact
 		result.Reason = "secret_scan_redact"
+		result.Trace.RouteSource = DecisionSourceScan
 		if err := syncRequestFromBody(&result, input.Scan.RedactedBody); err != nil {
 			return EvaluationResult{}, err
 		}
 		return result, nil
+	}
+
+	if phase == EvaluationPhasePreflight && runtimePolicy.MinimizeRemoteContext {
+		result.Retrieval = RetrievalPlan{
+			Apply:           true,
+			TopKCap:         runtimePolicy.RemoteRetrievalTopK,
+			MaxContextChars: runtimePolicy.RemoteMaxContextChars,
+			Source:          DecisionSourceDefault,
+		}
 	}
 
 	return result, nil

@@ -45,6 +45,33 @@ func LoadProject(path string) (ProjectConfig, error) {
 	return cfg, nil
 }
 
+func LoadSystem(path string) (SystemConfig, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return SystemConfig{}, fmt.Errorf("read system config %s: %w", path, err)
+	}
+
+	if err := rejectPlaintextSystemConfig(data); err != nil {
+		return SystemConfig{}, err
+	}
+
+	cfg := DefaultSystemConfig()
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return SystemConfig{}, fmt.Errorf("parse system config: %w", err)
+	}
+
+	applySystemDerivedDefaults(&cfg)
+
+	if err := ValidateSystem(cfg); err != nil {
+		return SystemConfig{}, err
+	}
+	if err := decryptSystemPolicy(&cfg); err != nil {
+		return SystemConfig{}, err
+	}
+
+	return cfg, nil
+}
+
 func LoadWithMode(path string, mode ValidationMode) (Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -142,6 +169,21 @@ func applyProjectDerivedDefaults(cfg *ProjectConfig, projectPath string) {
 
 	for i := range cfg.Sources {
 		cfg.Sources[i].Path = resolveProjectPath(projectPath, cfg.Sources[i].Path)
+	}
+}
+
+func applySystemDerivedDefaults(cfg *SystemConfig) {
+	if cfg.Version == "" {
+		cfg.Version = DefaultSystemConfig().Version
+	}
+	if cfg.Encryption.Method == "" {
+		cfg.Encryption.Method = DefaultSystemConfig().Encryption.Method
+	}
+	if cfg.Encryption.KeyringService == "" {
+		cfg.Encryption.KeyringService = DefaultSystemConfig().Encryption.KeyringService
+	}
+	if cfg.Encryption.KeyringAccount == "" {
+		cfg.Encryption.KeyringAccount = DefaultSystemConfig().Encryption.KeyringAccount
 	}
 }
 
@@ -250,6 +292,14 @@ func DefaultProjectConfigPath(root string) string {
 	return filepath.Join(base, ".sidekick", "project.yaml")
 }
 
+func DefaultSystemConfigPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join(".sidekick", "system.yaml")
+	}
+	return filepath.Join(home, ".sidekick", "system.yaml")
+}
+
 func DefaultDataDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -332,4 +382,19 @@ func resolveProjectPath(projectPath string, value string) string {
 	}
 
 	return filepath.Clean(resolved)
+}
+
+func rejectPlaintextSystemConfig(data []byte) error {
+	var raw map[string]any
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		return fmt.Errorf("parse system config envelope: %w", err)
+	}
+
+	for _, key := range []string{"identity", "rules", "policy"} {
+		if _, ok := raw[key]; ok {
+			return fmt.Errorf("system config must not contain plaintext %q data; store only encrypted_payload and keyring metadata", key)
+		}
+	}
+
+	return nil
 }

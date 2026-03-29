@@ -92,8 +92,12 @@ func (p *Pipeline) NeedsPreparation(req internalopenai.ChatCompletionRequest) bo
 	return p.defaults.Enabled || req.Retrieval != nil
 }
 
+func (p *Pipeline) ResolveSettings(req internalopenai.ChatCompletionRequest) (Settings, error) {
+	return ResolveSettings(p.defaults, req.Retrieval)
+}
+
 func (p *Pipeline) Prepare(ctx context.Context, req internalopenai.ChatCompletionRequest) (internalopenai.ChatCompletionRequest, []byte, error) {
-	settings, err := ResolveSettings(p.defaults, req.Retrieval)
+	settings, err := p.ResolveSettings(req)
 	if err != nil {
 		return internalopenai.ChatCompletionRequest{}, nil, err
 	}

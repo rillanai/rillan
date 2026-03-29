@@ -1,10 +1,13 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
+	"github.com/sidekickos/rillan/internal/audit"
 	"github.com/sidekickos/rillan/internal/config"
 	"github.com/sidekickos/rillan/internal/index"
 	"github.com/sidekickos/rillan/internal/ollama"
@@ -23,12 +26,26 @@ func newStatusCommand() *cobra.Command {
 				return err
 			}
 
+			systemConfigPath := config.DefaultSystemConfigPath()
+			systemConfigState := "missing"
+			if _, err := config.LoadSystem(systemConfigPath); err == nil {
+				systemConfigState = "loaded"
+			} else if !errors.Is(err, os.ErrNotExist) {
+				systemConfigState = "invalid"
+			}
+
 			status, err := index.ReadStatus(cmd.Context(), cfg)
 			if err != nil {
 				return err
 			}
 
-			_, err = fmt.Fprintf(cmd.OutOrStdout(), "configured_root: %s\nlast_attempt_state: %s\nlast_attempt_root: %s\nlast_attempt_at: %s\nlast_attempt_error: %s\ncommitted_root: %s\ncommitted_last_indexed_at: %s\ndocuments: %d\nchunks: %d\nvectors: %d\ndb_path: %s\n",
+			retrievalMode := "disabled"
+			if cfg.Retrieval.Enabled {
+				retrievalMode = "targeted_remote"
+			}
+			auditLedgerPath := audit.DefaultLedgerPath()
+
+			_, err = fmt.Fprintf(cmd.OutOrStdout(), "configured_root: %s\nlast_attempt_state: %s\nlast_attempt_root: %s\nlast_attempt_at: %s\nlast_attempt_error: %s\ncommitted_root: %s\ncommitted_last_indexed_at: %s\ndocuments: %d\nchunks: %d\nvectors: %d\ndb_path: %s\nsystem_config_path: %s\nsystem_config_state: %s\naudit_ledger_path: %s\nretrieval_enabled: %t\nretrieval_mode: %s\n",
 				emptyFallback(status.ConfiguredRootPath, "not configured"),
 				emptyFallback(status.LastAttemptState, index.RunStatusNeverIndexed),
 				emptyFallback(status.LastAttemptRootPath, "none"),
@@ -40,6 +57,11 @@ func newStatusCommand() *cobra.Command {
 				status.Chunks,
 				status.Vectors,
 				status.DBPath,
+				systemConfigPath,
+				systemConfigState,
+				auditLedgerPath,
+				cfg.Retrieval.Enabled,
+				retrievalMode,
 			)
 			if err != nil {
 				return err
@@ -49,14 +71,19 @@ func newStatusCommand() *cobra.Command {
 			if cfg.LocalModel.Enabled {
 				client := ollama.New(cfg.LocalModel.BaseURL, &http.Client{})
 				reachable := client.Ping(cmd.Context()) == nil
-				_, err = fmt.Fprintf(cmd.OutOrStdout(), "local_model_enabled: true\nlocal_model_url: %s\nlocal_model_reachable: %t\nlocal_model_embed_model: %s\nlocal_model_query_rewrite: %t\n",
+				runtimeState := "ready"
+				if !reachable {
+					runtimeState = "degraded"
+				}
+				_, err = fmt.Fprintf(cmd.OutOrStdout(), "local_model_enabled: true\nlocal_model_required: true\nlocal_model_url: %s\nlocal_model_reachable: %t\nlocal_model_embed_model: %s\nlocal_model_query_rewrite: %t\nruntime_state: %s\n",
 					cfg.LocalModel.BaseURL,
 					reachable,
 					cfg.LocalModel.EmbedModel,
 					cfg.LocalModel.QueryRewrite.Enabled,
+					runtimeState,
 				)
 			} else {
-				_, err = fmt.Fprintf(cmd.OutOrStdout(), "local_model_enabled: false\n")
+				_, err = fmt.Fprintf(cmd.OutOrStdout(), "local_model_enabled: false\nlocal_model_required: false\nruntime_state: ready\n")
 			}
 			return err
 		},

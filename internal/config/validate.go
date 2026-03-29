@@ -51,6 +51,30 @@ func ValidateProject(cfg ProjectConfig) error {
 	return nil
 }
 
+func ValidateSystem(cfg SystemConfig) error {
+	if strings.TrimSpace(cfg.Version) == "" {
+		return fmt.Errorf("system.version must not be empty")
+	}
+
+	switch normalizeString(cfg.Encryption.Method) {
+	case SystemEncryptionKeyringAESGCM:
+	default:
+		return fmt.Errorf("system.encryption.method must be %q", SystemEncryptionKeyringAESGCM)
+	}
+
+	if strings.TrimSpace(cfg.Encryption.KeyringService) == "" {
+		return fmt.Errorf("system.encryption.keyring_service must not be empty")
+	}
+	if strings.TrimSpace(cfg.Encryption.KeyringAccount) == "" {
+		return fmt.Errorf("system.encryption.keyring_account must not be empty")
+	}
+	if strings.TrimSpace(cfg.EncryptedPayload) == "" {
+		return fmt.Errorf("system.encrypted_payload must not be empty")
+	}
+
+	return nil
+}
+
 func ValidateForMode(cfg Config, mode ValidationMode) error {
 	if cfg.Server.Host == "" {
 		return fmt.Errorf("server.host must not be empty")

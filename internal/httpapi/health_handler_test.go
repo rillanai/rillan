@@ -30,7 +30,7 @@ func TestReadyHandlerReturnsServiceUnavailableWhenCheckerFails(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/readyz", nil)
 
-	ReadyHandler(testChecker{err: context.DeadlineExceeded}, nil)(recorder, request)
+	ReadyHandler(testChecker{err: context.DeadlineExceeded}, nil, ReadinessInfo{})(recorder, request)
 
 	if got, want := recorder.Code, http.StatusServiceUnavailable; got != want {
 		t.Fatalf("status = %d, want %d", got, want)
@@ -42,7 +42,7 @@ func TestReadyHandlerIncludesLocalModelStatusWhenAvailable(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/readyz", nil)
 
 	ollamaChecker := func(context.Context) error { return nil }
-	ReadyHandler(testChecker{}, ollamaChecker)(recorder, request)
+	ReadyHandler(testChecker{}, ollamaChecker, ReadinessInfo{})(recorder, request)
 
 	if got, want := recorder.Code, http.StatusOK; got != want {
 		t.Fatalf("status = %d, want %d", got, want)
@@ -58,7 +58,7 @@ func TestReadyHandlerIncludesLocalModelUnavailableStatus(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/readyz", nil)
 
 	ollamaChecker := func(context.Context) error { return context.DeadlineExceeded }
-	ReadyHandler(testChecker{}, ollamaChecker)(recorder, request)
+	ReadyHandler(testChecker{}, ollamaChecker, ReadinessInfo{})(recorder, request)
 
 	if got, want := recorder.Code, http.StatusOK; got != want {
 		t.Fatalf("status = %d, want %d (ollama status should be informational only)", got, want)
@@ -73,14 +73,32 @@ func TestReadyHandlerOmitsLocalModelWhenNoChecker(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/readyz", nil)
 
-	ReadyHandler(testChecker{}, nil)(recorder, request)
+	ReadyHandler(testChecker{}, nil, ReadinessInfo{})(recorder, request)
 
 	if got, want := recorder.Code, http.StatusOK; got != want {
 		t.Fatalf("status = %d, want %d", got, want)
 	}
 	body := recorder.Body.String()
-	if contains(body, "local_model") {
+	if contains(body, `"local_model":`) {
 		t.Fatalf("expected no local_model in response when checker is nil, got %s", body)
+	}
+}
+
+func TestReadyHandlerReturnsServiceUnavailableWhenRequiredLocalModelIsUnavailable(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+
+	ollamaChecker := func(context.Context) error { return context.DeadlineExceeded }
+	ReadyHandler(testChecker{}, ollamaChecker, ReadinessInfo{LocalModelRequired: true, RetrievalMode: "targeted_remote", SystemConfigLoaded: true, AuditLedgerPath: "/tmp/ledger.jsonl"})(recorder, request)
+
+	if got, want := recorder.Code, http.StatusServiceUnavailable; got != want {
+		t.Fatalf("status = %d, want %d", got, want)
+	}
+	body := recorder.Body.String()
+	for _, want := range []string{"degraded", "targeted_remote", "system_config_loaded", "audit_ledger_path"} {
+		if !contains(body, want) {
+			t.Fatalf("expected %q in response, got %s", want, body)
+		}
 	}
 }
 

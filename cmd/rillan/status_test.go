@@ -68,6 +68,10 @@ func TestStatusCommandShowsCommittedAndFailedAttemptSeparately(t *testing.T) {
 		"documents: 1",
 		"chunks: 1",
 		"vectors: 1",
+		"system_config_state: missing",
+		"retrieval_mode: disabled",
+		"audit_ledger_path:",
+		"runtime_state: ready",
 	} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("output missing %q:\n%s", want, output)
@@ -100,7 +104,7 @@ func TestStatusCommandReportsReachableLocalModel(t *testing.T) {
 	}
 
 	output := stdout.String()
-	for _, want := range []string{"local_model_enabled: true", "local_model_reachable: true", "local_model_url: " + server.URL} {
+	for _, want := range []string{"local_model_enabled: true", "local_model_required: true", "local_model_reachable: true", "local_model_url: " + server.URL, "runtime_state: ready"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("output missing %q:\n%s", want, output)
 		}
@@ -122,7 +126,39 @@ func TestStatusCommandReportsUnreachableLocalModel(t *testing.T) {
 	}
 
 	output := stdout.String()
-	for _, want := range []string{"local_model_enabled: true", "local_model_reachable: false"} {
+	for _, want := range []string{"local_model_enabled: true", "local_model_required: true", "local_model_reachable: false", "runtime_state: degraded"} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("output missing %q:\n%s", want, output)
+		}
+	}
+}
+
+func TestStatusCommandReportsInvalidSystemConfigWithoutKeyringMaterial(t *testing.T) {
+	t.Setenv("XDG_DATA_HOME", filepath.Join(t.TempDir(), "data"))
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	systemPath := filepath.Join(home, ".sidekick", "system.yaml")
+	if err := os.MkdirAll(filepath.Dir(systemPath), 0o755); err != nil {
+		t.Fatalf("MkdirAll returned error: %v", err)
+	}
+	if err := os.WriteFile(systemPath, []byte("encrypted_payload: \"ciphertext\"\n"), 0o600); err != nil {
+		t.Fatalf("WriteFile returned error: %v", err)
+	}
+
+	configPath := writeStatusTestConfig(t)
+	cmd := newStatusCommand()
+	cmd.SetArgs([]string{"--config", configPath})
+	var stdout bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stdout)
+
+	if err := cmd.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("ExecuteContext returned error: %v", err)
+	}
+
+	output := stdout.String()
+	for _, want := range []string{"system_config_state: invalid", "system_config_path: " + systemPath} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("output missing %q:\n%s", want, output)
 		}

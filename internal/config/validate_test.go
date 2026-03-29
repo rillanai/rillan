@@ -177,3 +177,30 @@ func TestValidateProjectAcceptsValidConfig(t *testing.T) {
 		t.Fatalf("ValidateProject returned error: %v", err)
 	}
 }
+
+func TestValidateSystemRejectsMissingEncryptedPayload(t *testing.T) {
+	cfg := DefaultSystemConfig()
+
+	if err := ValidateSystem(cfg); err == nil {
+		t.Fatal("expected missing encrypted payload to fail validation")
+	}
+}
+
+func TestValidateSystemRejectsUnknownEncryptionMethod(t *testing.T) {
+	cfg := DefaultSystemConfig()
+	cfg.EncryptedPayload = "ciphertext"
+	cfg.Encryption.Method = "plaintext"
+
+	if err := ValidateSystem(cfg); err == nil {
+		t.Fatal("expected unknown encryption method to fail validation")
+	}
+}
+
+func TestValidateSystemAcceptsValidConfig(t *testing.T) {
+	cfg := DefaultSystemConfig()
+	cfg.EncryptedPayload = "ciphertext"
+
+	if err := ValidateSystem(cfg); err != nil {
+		t.Fatalf("ValidateSystem returned error: %v", err)
+	}
+}

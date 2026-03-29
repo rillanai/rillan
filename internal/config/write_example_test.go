@@ -29,6 +29,11 @@ func TestWriteExampleConfigWritesStarterConfig(t *testing.T) {
 	if !strings.Contains(content, "index:") {
 		t.Fatalf("starter config missing index block: %s", content)
 	}
+	for _, forbidden := range []string{"encrypted_payload", "keyring_service", "system:"} {
+		if strings.Contains(content, forbidden) {
+			t.Fatalf("starter config leaked system-only field %q: %s", forbidden, content)
+		}
+	}
 }
 
 func TestWriteExampleProjectConfigWritesStarterProjectConfig(t *testing.T) {
@@ -52,5 +57,10 @@ func TestWriteExampleProjectConfigWritesStarterProjectConfig(t *testing.T) {
 	}
 	if !strings.Contains(content, "routing:") {
 		t.Fatalf("starter project config missing routing block: %s", content)
+	}
+	for _, forbidden := range []string{"encrypted_payload", "keyring_service", "system:"} {
+		if strings.Contains(content, forbidden) {
+			t.Fatalf("starter project config leaked system-only field %q: %s", forbidden, content)
+		}
 	}
 }

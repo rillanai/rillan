@@ -1,0 +1,15 @@
+[Unit]
+Description=Rillan local OpenAI-compatible proxy
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h
+ExecStart=%h/.local/bin/rillan serve --config %h/.config/rillan/config.yaml
+Restart=on-failure
+RestartSec=2
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
