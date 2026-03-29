@@ -204,6 +204,70 @@ func TestDefaultPathsAreNonEmpty(t *testing.T) {
 	}
 }
 
+func TestLoadProjectAppliesDefaultsAndResolvesRelativeSourcePaths(t *testing.T) {
+	projectDir := t.TempDir()
+	projectPath := filepath.Join(projectDir, ".sidekick", "project.yaml")
+	if err := os.MkdirAll(filepath.Dir(projectPath), 0o755); err != nil {
+		t.Fatalf("mkdir project config dir: %v", err)
+	}
+	if err := os.WriteFile(projectPath, []byte("name: \"demo\"\nsources:\n  - path: \"src\"\n    type: \"go\"\n"), 0o644); err != nil {
+		t.Fatalf("write project config: %v", err)
+	}
+
+	cfg, err := LoadProject(projectPath)
+	if err != nil {
+		t.Fatalf("LoadProject returned error: %v", err)
+	}
+
+	if got, want := cfg.Classification, ProjectClassificationOpenSource; got != want {
+		t.Fatalf("classification = %q, want %q", got, want)
+	}
+	if got, want := cfg.Routing.Default, RoutePreferenceAuto; got != want {
+		t.Fatalf("routing.default = %q, want %q", got, want)
+	}
+	if got, want := cfg.Sources[0].Path, filepath.Join(projectDir, ".sidekick", "src"); got != want {
+		t.Fatalf("sources[0].path = %q, want %q", got, want)
+	}
+}
+
+func TestLoadProjectDoesNotUseEnvironmentOverrides(t *testing.T) {
+	t.Setenv("RILLAN_PROJECT_NAME", "env-project")
+
+	projectPath := writeTempProjectConfig(t, "name: \"file-project\"\nclassification: \"internal\"\n")
+
+	cfg, err := LoadProject(projectPath)
+	if err != nil {
+		t.Fatalf("LoadProject returned error: %v", err)
+	}
+
+	if got, want := cfg.Name, "file-project"; got != want {
+		t.Fatalf("name = %q, want %q", got, want)
+	}
+}
+
+func TestDefaultProjectConfigPathUsesRootWhenProvided(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "repo")
+	if got, want := DefaultProjectConfigPath(root), filepath.Join(root, ".sidekick", "project.yaml"); got != want {
+		t.Fatalf("DefaultProjectConfigPath() = %q, want %q", got, want)
+	}
+}
+
+func TestLoadProjectRejectsMalformedYAML(t *testing.T) {
+	projectPath := writeTempProjectConfig(t, "name: [oops\n")
+
+	if _, err := LoadProject(projectPath); err == nil {
+		t.Fatal("expected malformed project YAML to fail")
+	}
+}
+
+func TestLoadProjectRejectsInvalidProjectConfig(t *testing.T) {
+	projectPath := writeTempProjectConfig(t, "name: \"demo\"\nclassification: \"unknown\"\n")
+
+	if _, err := LoadProject(projectPath); err == nil {
+		t.Fatal("expected invalid project config to fail")
+	}
+}
+
 func writeTempConfig(t *testing.T, content string) string {
 	t.Helper()
 
@@ -211,6 +275,22 @@ func writeTempConfig(t *testing.T, content string) string {
 	path := filepath.Join(dir, "config.yaml")
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("write temp config: %v", err)
+	}
+
+	return path
+}
+
+func writeTempProjectConfig(t *testing.T, content string) string {
+	t.Helper()
+
+	dir := filepath.Join(t.TempDir(), ".sidekick")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir temp project dir: %v", err)
+	}
+
+	path := filepath.Join(dir, "project.yaml")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write temp project config: %v", err)
 	}
 
 	return path

@@ -3,6 +3,9 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -72,6 +75,60 @@ func TestStatusCommandShowsCommittedAndFailedAttemptSeparately(t *testing.T) {
 	}
 }
 
+func TestStatusCommandReportsReachableLocalModel(t *testing.T) {
+	t.Setenv("XDG_DATA_HOME", filepath.Join(t.TempDir(), "data"))
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/" {
+			_, _ = w.Write([]byte("ok"))
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"embeddings": [][]float64{{0.1}}})
+	}))
+	defer server.Close()
+
+	configPath := writeLocalModelStatusConfig(t, server.URL)
+	cmd := newStatusCommand()
+	cmd.SetArgs([]string{"--config", configPath})
+	var stdout bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stdout)
+
+	if err := cmd.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("ExecuteContext returned error: %v", err)
+	}
+
+	output := stdout.String()
+	for _, want := range []string{"local_model_enabled: true", "local_model_reachable: true", "local_model_url: " + server.URL} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("output missing %q:\n%s", want, output)
+		}
+	}
+}
+
+func TestStatusCommandReportsUnreachableLocalModel(t *testing.T) {
+	t.Setenv("XDG_DATA_HOME", filepath.Join(t.TempDir(), "data"))
+
+	configPath := writeLocalModelStatusConfig(t, "http://127.0.0.1:0")
+	cmd := newStatusCommand()
+	cmd.SetArgs([]string{"--config", configPath})
+	var stdout bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stdout)
+
+	if err := cmd.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("ExecuteContext returned error: %v", err)
+	}
+
+	output := stdout.String()
+	for _, want := range []string{"local_model_enabled: true", "local_model_reachable: false"} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("output missing %q:\n%s", want, output)
+		}
+	}
+}
+
 func writeStatusTestConfig(t *testing.T) string {
 	t.Helper()
 
@@ -87,6 +144,38 @@ index:
 
 runtime:
   vector_store_mode: "embedded"
+`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("WriteFile returned error: %v", err)
+	}
+
+	return path
+}
+
+func writeLocalModelStatusConfig(t *testing.T, baseURL string) string {
+	t.Helper()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	content := `server:
+  host: "127.0.0.1"
+  port: 8420
+  log_level: "info"
+
+index:
+  root: "/configured-root"
+
+local_model:
+  enabled: true
+  base_url: "` + baseURL + `"
+  embed_model: "nomic-embed-text"
+  query_rewrite:
+    enabled: true
+    model: "qwen3:0.6b"
+
+runtime:
+  vector_store_mode: "embedded"
+  local_model_base_url: "` + baseURL + `"
 `
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("WriteFile returned error: %v", err)

@@ -16,6 +16,7 @@ import (
 	"github.com/sidekickos/rillan/internal/config"
 	"github.com/sidekickos/rillan/internal/index"
 	internalopenai "github.com/sidekickos/rillan/internal/openai"
+	"github.com/sidekickos/rillan/internal/policy"
 	"github.com/sidekickos/rillan/internal/retrieval"
 )
 
@@ -44,6 +45,15 @@ func (f *fakeProvider) ChatCompletions(_ context.Context, req internalopenai.Cha
 		Header:     http.Header{"Content-Type": []string{"application/json"}},
 		Body:       io.NopCloser(strings.NewReader(`{"id":"ok"}`)),
 	}, nil
+}
+
+type staticClassifier struct {
+	classification *policy.IntentClassification
+	err            error
+}
+
+func (s staticClassifier) Classify(context.Context, internalopenai.ChatCompletionRequest) (*policy.IntentClassification, error) {
+	return s.classification, s.err
 }
 
 func TestChatCompletionsHandlerRejectsInvalidRequest(t *testing.T) {
@@ -195,6 +205,94 @@ func TestChatCompletionsHandlerLeavesRetrievalDebugHeadersUnsetWhenInactive(t *t
 		if got := recorder.Header().Get(header); got != "" {
 			t.Fatalf("%s = %q, want empty", header, got)
 		}
+	}
+}
+
+func TestChatCompletionsHandlerBlocksPolicyViolations(t *testing.T) {
+	provider := &fakeProvider{}
+	handler := NewChatCompletionsHandler(slog.Default(), provider, nil)
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-4o-mini","messages":[{"role":"user","content":"-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----"}]}`))
+
+	handler.ServeHTTP(recorder, request)
+
+	if got, want := recorder.Code, http.StatusForbidden; got != want {
+		t.Fatalf("status = %d, want %d", got, want)
+	}
+	if got := provider.called; got != 0 {
+		t.Fatalf("provider calls = %d, want 0", got)
+	}
+	if !strings.Contains(recorder.Body.String(), "policy_violation") {
+		t.Fatalf("response body = %q, want policy_violation", recorder.Body.String())
+	}
+}
+
+func TestChatCompletionsHandlerRedactsBeforeDispatch(t *testing.T) {
+	provider := &fakeProvider{}
+	handler := NewChatCompletionsHandler(slog.Default(), provider, nil)
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-4o-mini","messages":[{"role":"user","content":"token sk-1234567890abcdefghijklmnop"}]}`))
+
+	handler.ServeHTTP(recorder, request)
+
+	if got, want := recorder.Code, http.StatusOK; got != want {
+		t.Fatalf("status = %d, want %d", got, want)
+	}
+	if got, want := provider.called, 1; got != want {
+		t.Fatalf("provider calls = %d, want %d", got, want)
+	}
+	if strings.Contains(string(provider.body), "sk-1234567890abcdefghijklmnop") {
+		t.Fatalf("provider body leaked token: %s", string(provider.body))
+	}
+	if !strings.Contains(string(provider.body), "[REDACTED OPENAI API KEY]") {
+		t.Fatalf("provider body = %s, want redacted token", string(provider.body))
+	}
+}
+
+func TestChatCompletionsHandlerReturnsLocalOnlyPolicyDenial(t *testing.T) {
+	provider := &fakeProvider{}
+	handler := NewChatCompletionsHandler(
+		slog.Default(),
+		provider,
+		nil,
+		WithProjectConfig(config.ProjectConfig{Name: "demo", Classification: config.ProjectClassificationTradeSecret}),
+		WithPolicyEvaluator(policy.NewEvaluator()),
+	)
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-4o-mini","messages":[{"role":"user","content":"ping"}]}`))
+
+	handler.ServeHTTP(recorder, request)
+
+	if got, want := recorder.Code, http.StatusForbidden; got != want {
+		t.Fatalf("status = %d, want %d", got, want)
+	}
+	if got := provider.called; got != 0 {
+		t.Fatalf("provider calls = %d, want 0", got)
+	}
+	if !strings.Contains(recorder.Body.String(), "local-only") {
+		t.Fatalf("response body = %q, want local-only denial", recorder.Body.String())
+	}
+}
+
+func TestChatCompletionsHandlerClassifierCanForceLocalOnly(t *testing.T) {
+	provider := &fakeProvider{}
+	handler := NewChatCompletionsHandler(
+		slog.Default(),
+		provider,
+		nil,
+		WithProjectConfig(config.ProjectConfig{Name: "demo", Classification: config.ProjectClassificationInternal}),
+		WithClassifier(staticClassifier{classification: &policy.IntentClassification{Sensitivity: policy.SensitivityTradeSecret}}),
+	)
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-4o-mini","messages":[{"role":"user","content":"ping"}]}`))
+
+	handler.ServeHTTP(recorder, request)
+
+	if got, want := recorder.Code, http.StatusForbidden; got != want {
+		t.Fatalf("status = %d, want %d", got, want)
+	}
+	if got := provider.called; got != 0 {
+		t.Fatalf("provider calls = %d, want 0", got)
 	}
 }
 

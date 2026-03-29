@@ -9,6 +9,48 @@ func Validate(cfg Config) error {
 	return ValidateForMode(cfg, ValidationModeServe)
 }
 
+func ValidateProject(cfg ProjectConfig) error {
+	if strings.TrimSpace(cfg.Name) == "" {
+		return fmt.Errorf("project.name must not be empty")
+	}
+
+	switch normalizeString(cfg.Classification) {
+	case ProjectClassificationOpenSource, ProjectClassificationInternal, ProjectClassificationProprietary, ProjectClassificationTradeSecret:
+	default:
+		return fmt.Errorf("project.classification must be one of %q, %q, %q, or %q", ProjectClassificationOpenSource, ProjectClassificationInternal, ProjectClassificationProprietary, ProjectClassificationTradeSecret)
+	}
+
+	if err := validateRoutePreference("project.routing.default", cfg.Routing.Default); err != nil {
+		return err
+	}
+
+	for i, source := range cfg.Sources {
+		if strings.TrimSpace(source.Path) == "" {
+			return fmt.Errorf("project.sources[%d].path must not be empty", i)
+		}
+		if strings.TrimSpace(source.Type) == "" {
+			return fmt.Errorf("project.sources[%d].type must not be empty", i)
+		}
+	}
+
+	for key, value := range cfg.Routing.TaskTypes {
+		if strings.TrimSpace(key) == "" {
+			return fmt.Errorf("project.routing.task_types must not contain empty task names")
+		}
+		if err := validateRoutePreference(fmt.Sprintf("project.routing.task_types[%q]", key), value); err != nil {
+			return err
+		}
+	}
+
+	for i, instruction := range cfg.Instructions {
+		if strings.TrimSpace(instruction) == "" {
+			return fmt.Errorf("project.instructions[%d] must not be empty", i)
+		}
+	}
+
+	return nil
+}
+
 func ValidateForMode(cfg Config, mode ValidationMode) error {
 	if cfg.Server.Host == "" {
 		return fmt.Errorf("server.host must not be empty")
@@ -92,4 +134,13 @@ func ValidateForMode(cfg Config, mode ValidationMode) error {
 	}
 
 	return nil
+}
+
+func validateRoutePreference(field string, value string) error {
+	switch normalizeString(value) {
+	case RoutePreferenceAuto, RoutePreferencePreferLocal, RoutePreferencePreferCloud, RoutePreferenceLocalOnly:
+		return nil
+	default:
+		return fmt.Errorf("%s must be one of %q, %q, %q, or %q", field, RoutePreferenceAuto, RoutePreferencePreferLocal, RoutePreferencePreferCloud, RoutePreferenceLocalOnly)
+	}
 }

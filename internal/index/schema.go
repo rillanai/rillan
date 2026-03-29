@@ -1,6 +1,6 @@
 package index
 
-const currentSchemaVersion = 1
+const currentSchemaVersion = 2
 
 const bootstrapSQL = `
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -35,6 +35,16 @@ CREATE TABLE IF NOT EXISTS chunks (
     end_line INTEGER NOT NULL,
     content TEXT NOT NULL,
     content_hash TEXT NOT NULL
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
+    chunk_id UNINDEXED,
+    document_path UNINDEXED,
+    ordinal UNINDEXED,
+    start_line UNINDEXED,
+    end_line UNINDEXED,
+    content,
+    tokenize = 'unicode61'
 );
 
 CREATE TABLE IF NOT EXISTS vectors (

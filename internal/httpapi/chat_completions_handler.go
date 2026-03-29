@@ -11,16 +11,25 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sidekickos/rillan/internal/classify"
+	"github.com/sidekickos/rillan/internal/config"
 	internalopenai "github.com/sidekickos/rillan/internal/openai"
+	"github.com/sidekickos/rillan/internal/policy"
 	"github.com/sidekickos/rillan/internal/providers"
 	"github.com/sidekickos/rillan/internal/retrieval"
 )
 
 type ChatCompletionsHandler struct {
-	logger   *slog.Logger
-	provider providers.Provider
-	pipeline *retrieval.Pipeline
+	logger     *slog.Logger
+	provider   providers.Provider
+	pipeline   *retrieval.Pipeline
+	project    config.ProjectConfig
+	evaluator  policy.Evaluator
+	scanner    *policy.Scanner
+	classifier classify.Classifier
 }
+
+type ChatCompletionsHandlerOption func(*ChatCompletionsHandler)
 
 const (
 	headerRetrievalActive    = "X-Rillan-Retrieval"
@@ -31,15 +40,53 @@ const (
 	maxDebugHeaderSourceRefs = 3
 )
 
-func NewChatCompletionsHandler(logger *slog.Logger, provider providers.Provider, pipeline *retrieval.Pipeline) *ChatCompletionsHandler {
+func NewChatCompletionsHandler(logger *slog.Logger, provider providers.Provider, pipeline *retrieval.Pipeline, opts ...ChatCompletionsHandlerOption) *ChatCompletionsHandler {
 	if logger == nil {
 		logger = slog.Default()
 	}
 
-	return &ChatCompletionsHandler{
-		logger:   logger,
-		provider: provider,
-		pipeline: pipeline,
+	handler := &ChatCompletionsHandler{
+		logger:    logger,
+		provider:  provider,
+		pipeline:  pipeline,
+		project:   config.DefaultProjectConfig(),
+		evaluator: policy.NewEvaluator(),
+		scanner:   policy.DefaultScanner(),
+	}
+	for _, opt := range opts {
+		opt(handler)
+	}
+	if handler.scanner == nil {
+		handler.scanner = policy.DefaultScanner()
+	}
+	if handler.evaluator == nil {
+		handler.evaluator = policy.NewEvaluator()
+	}
+
+	return handler
+}
+
+func WithProjectConfig(project config.ProjectConfig) ChatCompletionsHandlerOption {
+	return func(handler *ChatCompletionsHandler) {
+		handler.project = project
+	}
+}
+
+func WithPolicyEvaluator(evaluator policy.Evaluator) ChatCompletionsHandlerOption {
+	return func(handler *ChatCompletionsHandler) {
+		handler.evaluator = evaluator
+	}
+}
+
+func WithPolicyScanner(scanner *policy.Scanner) ChatCompletionsHandlerOption {
+	return func(handler *ChatCompletionsHandler) {
+		handler.scanner = scanner
+	}
+}
+
+func WithClassifier(classifier classify.Classifier) ChatCompletionsHandlerOption {
+	return func(handler *ChatCompletionsHandler) {
+		handler.classifier = classifier
 	}
 }
 
@@ -87,6 +134,46 @@ func (h *ChatCompletionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 			"truncated", summary.Truncated,
 			"source_refs", summary.SourceRefs,
 		)
+	}
+
+	scanResult := h.scanner.Scan(outboundBody)
+	var classification *policy.IntentClassification
+	if h.classifier != nil {
+		classification, err = h.classifier.Classify(r.Context(), outboundRequest)
+		if err != nil {
+			h.logger.Warn("intent classification failed", "request_id", RequestIDFromContext(r.Context()), "provider", h.provider.Name(), "error", err.Error())
+		}
+	}
+	evaluation, err := h.evaluator.Evaluate(r.Context(), policy.EvaluationInput{
+		Project:        h.project,
+		Request:        outboundRequest,
+		Body:           outboundBody,
+		Scan:           scanResult,
+		Classification: classification,
+	})
+	if err != nil {
+		h.logger.Error("policy evaluation failed", "request_id", RequestIDFromContext(r.Context()), "provider", h.provider.Name(), "error", err.Error())
+		internalopenai.WriteError(w, http.StatusInternalServerError, "policy_error", "policy evaluation failed")
+		return
+	}
+	outboundRequest = evaluation.Request
+	outboundBody = evaluation.Body
+
+	h.logger.Info("policy evaluated",
+		"request_id", RequestIDFromContext(r.Context()),
+		"provider", h.provider.Name(),
+		"verdict", evaluation.Verdict,
+		"reason", evaluation.Reason,
+		"findings", len(evaluation.Findings),
+	)
+
+	switch evaluation.Verdict {
+	case policy.VerdictBlock:
+		internalopenai.WriteError(w, http.StatusForbidden, "policy_violation", "outbound request blocked by policy")
+		return
+	case policy.VerdictLocalOnly:
+		internalopenai.WriteError(w, http.StatusForbidden, "policy_violation", "request requires local-only handling")
+		return
 	}
 
 	response, err := h.provider.ChatCompletions(r.Context(), outboundRequest, outboundBody)

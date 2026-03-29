@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"log/slog"
 	"os"
 
@@ -21,8 +22,18 @@ func newServeCommand() *cobra.Command {
 				return err
 			}
 
+			projectConfigPath := config.DefaultProjectConfigPath(cfg.Index.Root)
+			projectCfg, err := config.LoadProject(projectConfigPath)
+			if err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					projectCfg = config.DefaultProjectConfig()
+				} else {
+					return err
+				}
+			}
+
 			logger := newLogger(cfg.Server.LogLevel)
-			application, err := app.New(cfg, configPath, logger)
+			application, err := app.New(cfg, projectCfg, configPath, projectConfigPath, logger)
 			if err != nil {
 				return err
 			}

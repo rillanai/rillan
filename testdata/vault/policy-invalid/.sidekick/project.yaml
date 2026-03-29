@@ -1,0 +1,5 @@
+name: "broken-project"
+classification: "not-a-real-classification"
+
+routing:
+  default: "auto"

@@ -30,8 +30,7 @@ func newIndexCommand() *cobra.Command {
 				client := ollama.New(cfg.LocalModel.BaseURL, &http.Client{})
 				reachable := client.Ping(cmd.Context()) == nil
 				if !reachable {
-					logger.Warn("ollama unavailable, falling back to placeholder embeddings",
-						"base_url", cfg.LocalModel.BaseURL)
+					return fmt.Errorf("ollama unavailable at %s while local_model.enabled is true", cfg.LocalModel.BaseURL)
 				}
 				opts = append(opts, index.WithEmbedder(&ollamaEmbedderAdapter{client: client}, reachable))
 			}

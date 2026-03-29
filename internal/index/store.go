@@ -9,7 +9,9 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
+	"unicode"
 
 	_ "modernc.org/sqlite"
 
@@ -106,7 +108,7 @@ func (s *Store) ReplaceAll(ctx context.Context, documents []DocumentRecord, chun
 		}
 	}()
 
-	for _, statement := range []string{"DELETE FROM vectors", "DELETE FROM chunks", "DELETE FROM documents"} {
+	for _, statement := range []string{"DELETE FROM vectors", "DELETE FROM chunks_fts", "DELETE FROM chunks", "DELETE FROM documents"} {
 		if _, err = tx.ExecContext(ctx, statement); err != nil {
 			return fmt.Errorf("clear existing index: %w", err)
 		}
@@ -133,9 +135,21 @@ func (s *Store) ReplaceAll(ctx context.Context, documents []DocumentRecord, chun
 	}
 	defer chunkStmt.Close()
 
+	ftsStmt, err := tx.PrepareContext(ctx, `
+		INSERT INTO chunks_fts(chunk_id, document_path, ordinal, start_line, end_line, content)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`)
+	if err != nil {
+		return fmt.Errorf("prepare chunks fts insert: %w", err)
+	}
+	defer ftsStmt.Close()
+
 	for _, chunk := range chunks {
 		if _, err = chunkStmt.ExecContext(ctx, chunk.ID, chunk.DocumentPath, chunk.Ordinal, chunk.StartLine, chunk.EndLine, chunk.Content, chunk.ContentHash); err != nil {
 			return fmt.Errorf("insert chunk %s: %w", chunk.ID, err)
+		}
+		if _, err = ftsStmt.ExecContext(ctx, chunk.ID, chunk.DocumentPath, chunk.Ordinal, chunk.StartLine, chunk.EndLine, chunk.Content); err != nil {
+			return fmt.Errorf("insert chunk fts %s: %w", chunk.ID, err)
 		}
 	}
 
@@ -266,6 +280,9 @@ func (s *Store) SearchChunks(ctx context.Context, queryEmbedding []float32, limi
 		if err != nil {
 			return nil, fmt.Errorf("decode embedding for %s: %w", result.ChunkID, err)
 		}
+		if len(queryEmbedding) != len(embedding) {
+			return nil, fmt.Errorf("query embedding dimensions %d do not match stored chunk %s dimensions %d", len(queryEmbedding), result.ChunkID, len(embedding))
+		}
 		result.Score = cosineSimilarity(queryEmbedding, embedding)
 		results = append(results, result)
 	}
@@ -293,6 +310,50 @@ func (s *Store) SearchChunks(ctx context.Context, queryEmbedding []float32, limi
 	return results, nil
 }
 
+func (s *Store) SearchChunksKeyword(ctx context.Context, query string, limit int) ([]SearchResult, error) {
+	if limit < 1 {
+		return nil, fmt.Errorf("search limit must be greater than zero")
+	}
+
+	matchQuery := buildFTSQuery(query)
+	if matchQuery == "" {
+		return nil, nil
+	}
+
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT chunk_id, document_path, ordinal, start_line, end_line, content
+		FROM chunks_fts
+		WHERE chunks_fts MATCH ?
+		ORDER BY rank
+		LIMIT ?
+	`, matchQuery, limit)
+	if err != nil {
+		return nil, fmt.Errorf("query keyword search rows: %w", err)
+	}
+	defer rows.Close()
+
+	results := make([]SearchResult, 0, limit)
+	position := 0
+	for rows.Next() {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+
+		var result SearchResult
+		if err := rows.Scan(&result.ChunkID, &result.DocumentPath, &result.Ordinal, &result.StartLine, &result.EndLine, &result.Content); err != nil {
+			return nil, fmt.Errorf("scan keyword search row: %w", err)
+		}
+		result.Score = 1.0 / float64(position+1)
+		results = append(results, result)
+		position++
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate keyword search rows: %w", err)
+	}
+
+	return results, nil
+}
+
 func nullableString(value string) any {
 	if value == "" {
 		return nil
@@ -314,6 +375,26 @@ func parseSQLiteTimestamp(value string) time.Time {
 		return time.Time{}
 	}
 	return parsed.UTC()
+}
+
+func buildFTSQuery(query string) string {
+	parts := strings.FieldsFunc(strings.ToLower(query), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '_'
+	})
+	quoted := make([]string, 0, len(parts))
+	seen := make(map[string]struct{}, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if len(part) < 2 {
+			continue
+		}
+		if _, ok := seen[part]; ok {
+			continue
+		}
+		seen[part] = struct{}{}
+		quoted = append(quoted, fmt.Sprintf("\"%s\"", part))
+	}
+	return strings.Join(quoted, " OR ")
 }
 
 func cosineSimilarity(left, right []float32) float64 {

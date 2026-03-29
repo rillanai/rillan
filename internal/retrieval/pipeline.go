@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -113,10 +114,7 @@ func (p *Pipeline) Prepare(ctx context.Context, req internalopenai.ChatCompletio
 		}
 	}
 
-	queryEmbedding, err := p.queryEmbedder.EmbedQuery(ctx, query)
-	if err != nil {
-		return internalopenai.ChatCompletionRequest{}, nil, fmt.Errorf("embed query: %w", err)
-	}
+	queryEmbedding, embedErr := p.queryEmbedder.EmbedQuery(ctx, query)
 
 	store, err := index.OpenStore(p.dbPath)
 	if err != nil {
@@ -124,9 +122,28 @@ func (p *Pipeline) Prepare(ctx context.Context, req internalopenai.ChatCompletio
 	}
 	defer store.Close()
 
-	results, err := store.SearchChunks(ctx, queryEmbedding, settings.TopK)
-	if err != nil {
-		return internalopenai.ChatCompletionRequest{}, nil, fmt.Errorf("search retrieval chunks: %w", err)
+	var results []index.SearchResult
+	var vectorErr error
+	if embedErr == nil {
+		results, vectorErr = store.SearchChunks(ctx, queryEmbedding, settings.TopK)
+		if vectorErr != nil {
+			results = nil
+		}
+	}
+	keywordResults, keywordErr := store.SearchChunksKeyword(ctx, query, settings.TopK)
+	if keywordErr != nil && vectorErr != nil {
+		return internalopenai.ChatCompletionRequest{}, nil, fmt.Errorf("search retrieval chunks: %w; keyword search: %v", vectorErr, keywordErr)
+	}
+	if len(keywordResults) > 0 {
+		results = fuseSearchResults(results, keywordResults, settings.TopK)
+	} else if vectorErr != nil && keywordErr == nil {
+		results = nil
+	}
+	if len(results) == 0 && embedErr != nil && keywordErr == nil {
+		return internalopenai.ChatCompletionRequest{}, nil, fmt.Errorf("embed query: %w", embedErr)
+	}
+	if len(results) == 0 && vectorErr != nil && keywordErr != nil {
+		return internalopenai.ChatCompletionRequest{}, nil, fmt.Errorf("search retrieval chunks: %w; keyword search: %v", vectorErr, keywordErr)
 	}
 
 	compiled := CompileContext(results, settings.MaxContextChars)
@@ -143,6 +160,63 @@ func (p *Pipeline) Prepare(ctx context.Context, req internalopenai.ChatCompletio
 	}
 
 	return sanitizeRequest(req, contextText, metadata)
+}
+
+func fuseSearchResults(vectorResults []index.SearchResult, keywordResults []index.SearchResult, limit int) []index.SearchResult {
+	if len(vectorResults) == 0 {
+		if len(keywordResults) > limit {
+			return keywordResults[:limit]
+		}
+		return keywordResults
+	}
+	if len(keywordResults) == 0 {
+		if len(vectorResults) > limit {
+			return vectorResults[:limit]
+		}
+		return vectorResults
+	}
+
+	type fused struct {
+		result index.SearchResult
+		score  float64
+	}
+
+	combined := make(map[string]fused, len(vectorResults)+len(keywordResults))
+	for i, result := range vectorResults {
+		combined[result.ChunkID] = fused{result: result, score: 0.4 / float64(i+1)}
+	}
+	for i, result := range keywordResults {
+		entry := combined[result.ChunkID]
+		if entry.result.ChunkID == "" {
+			entry.result = result
+		}
+		entry.score += 0.6 / float64(i+1)
+		combined[result.ChunkID] = entry
+	}
+
+	fusedResults := make([]index.SearchResult, 0, len(combined))
+	for _, entry := range combined {
+		entry.result.Score = entry.score
+		fusedResults = append(fusedResults, entry.result)
+	}
+
+	sort.Slice(fusedResults, func(i, j int) bool {
+		if fusedResults[i].Score != fusedResults[j].Score {
+			return fusedResults[i].Score > fusedResults[j].Score
+		}
+		if fusedResults[i].DocumentPath != fusedResults[j].DocumentPath {
+			return fusedResults[i].DocumentPath < fusedResults[j].DocumentPath
+		}
+		if fusedResults[i].Ordinal != fusedResults[j].Ordinal {
+			return fusedResults[i].Ordinal < fusedResults[j].Ordinal
+		}
+		return fusedResults[i].ChunkID < fusedResults[j].ChunkID
+	})
+
+	if len(fusedResults) > limit {
+		fusedResults = fusedResults[:limit]
+	}
+	return fusedResults
 }
 
 func ResolveSettings(defaults config.RetrievalConfig, override *internalopenai.RetrievalOptions) (Settings, error) {

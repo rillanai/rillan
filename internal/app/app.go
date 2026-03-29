@@ -7,22 +7,25 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/sidekickos/rillan/internal/classify"
 	"github.com/sidekickos/rillan/internal/config"
 	"github.com/sidekickos/rillan/internal/httpapi"
 	"github.com/sidekickos/rillan/internal/ollama"
+	"github.com/sidekickos/rillan/internal/policy"
 	"github.com/sidekickos/rillan/internal/providers"
 	"github.com/sidekickos/rillan/internal/retrieval"
 )
 
 type App struct {
-	addr       string
-	configPath string
-	logger     *slog.Logger
-	provider   providers.Provider
-	server     *http.Server
+	addr              string
+	configPath        string
+	projectConfigPath string
+	logger            *slog.Logger
+	provider          providers.Provider
+	server            *http.Server
 }
 
-func New(cfg config.Config, configPath string, logger *slog.Logger) (*App, error) {
+func New(cfg config.Config, project config.ProjectConfig, configPath string, projectConfigPath string, logger *slog.Logger) (*App, error) {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -33,10 +36,14 @@ func New(cfg config.Config, configPath string, logger *slog.Logger) (*App, error
 	}
 
 	var routerOpts httpapi.RouterOptions
+	routerOpts.ProjectConfig = project
+	routerOpts.PolicyEvaluator = policy.NewEvaluator()
+	routerOpts.PolicyScanner = policy.DefaultScanner()
 
 	if cfg.LocalModel.Enabled {
 		ollamaClient := ollama.New(cfg.LocalModel.BaseURL, &http.Client{})
 		routerOpts.OllamaChecker = ollamaClient.Ping
+		routerOpts.Classifier = classify.NewSafeClassifier(classify.NewOllamaClassifier(ollamaClient, cfg.LocalModel.QueryRewrite.Model))
 
 		routerOpts.PipelineOpts = append(routerOpts.PipelineOpts,
 			retrieval.WithQueryEmbedder(
@@ -61,11 +68,12 @@ func New(cfg config.Config, configPath string, logger *slog.Logger) (*App, error
 	}
 
 	return &App{
-		addr:       addr,
-		configPath: configPath,
-		logger:     logger,
-		provider:   provider,
-		server:     server,
+		addr:              addr,
+		configPath:        configPath,
+		projectConfigPath: projectConfigPath,
+		logger:            logger,
+		provider:          provider,
+		server:            server,
 	}, nil
 }
 
@@ -73,6 +81,7 @@ func (a *App) Run(ctx context.Context) error {
 	a.logger.Info("starting rillan server",
 		"addr", a.addr,
 		"config_path", a.configPath,
+		"project_config_path", a.projectConfigPath,
 		"provider", a.provider.Name(),
 	)
 

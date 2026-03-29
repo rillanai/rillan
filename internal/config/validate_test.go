@@ -133,3 +133,47 @@ func TestValidateRejectsInvalidRetrievalBounds(t *testing.T) {
 		t.Fatal("expected invalid retrieval.max_context_chars to fail validation")
 	}
 }
+
+func TestValidateProjectRejectsEmptyName(t *testing.T) {
+	cfg := DefaultProjectConfig()
+	cfg.Classification = ProjectClassificationInternal
+
+	if err := ValidateProject(cfg); err == nil {
+		t.Fatal("expected empty project name to fail validation")
+	}
+}
+
+func TestValidateProjectRejectsUnknownClassification(t *testing.T) {
+	cfg := DefaultProjectConfig()
+	cfg.Name = "demo"
+	cfg.Classification = "classified"
+
+	if err := ValidateProject(cfg); err == nil {
+		t.Fatal("expected invalid classification to fail validation")
+	}
+}
+
+func TestValidateProjectRejectsInvalidTaskRoute(t *testing.T) {
+	cfg := DefaultProjectConfig()
+	cfg.Name = "demo"
+	cfg.Routing.TaskTypes["review"] = "somewhere"
+
+	if err := ValidateProject(cfg); err == nil {
+		t.Fatal("expected invalid task route to fail validation")
+	}
+}
+
+func TestValidateProjectAcceptsValidConfig(t *testing.T) {
+	cfg := DefaultProjectConfig()
+	cfg.Name = "demo"
+	cfg.Classification = ProjectClassificationProprietary
+	cfg.Sources = []ProjectSource{{Path: "/repo/src", Type: "go"}}
+	cfg.Routing.Default = RoutePreferencePreferCloud
+	cfg.Routing.TaskTypes["code_generation"] = RoutePreferencePreferLocal
+	cfg.SystemPrompt = "Keep responses grounded in the repo."
+	cfg.Instructions = []string{"Never include credentials.", "Prefer retrieval before generation."}
+
+	if err := ValidateProject(cfg); err != nil {
+		t.Fatalf("ValidateProject returned error: %v", err)
+	}
+}

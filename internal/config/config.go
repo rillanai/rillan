@@ -5,6 +5,16 @@ import "log/slog"
 const (
 	ProviderOpenAI    = "openai"
 	ProviderAnthropic = "anthropic"
+
+	ProjectClassificationOpenSource  = "open_source"
+	ProjectClassificationInternal    = "internal"
+	ProjectClassificationProprietary = "proprietary"
+	ProjectClassificationTradeSecret = "trade_secret"
+
+	RoutePreferenceAuto        = "auto"
+	RoutePreferencePreferLocal = "prefer_local"
+	RoutePreferencePreferCloud = "prefer_cloud"
+	RoutePreferenceLocalOnly   = "local_only"
 )
 
 type Config struct {
@@ -14,6 +24,25 @@ type Config struct {
 	Retrieval  RetrievalConfig  `yaml:"retrieval"`
 	Runtime    RuntimeConfig    `yaml:"runtime"`
 	LocalModel LocalModelConfig `yaml:"local_model"`
+}
+
+type ProjectConfig struct {
+	Name           string               `yaml:"name"`
+	Classification string               `yaml:"classification"`
+	Sources        []ProjectSource      `yaml:"sources"`
+	Routing        ProjectRoutingConfig `yaml:"routing"`
+	SystemPrompt   string               `yaml:"system_prompt"`
+	Instructions   []string             `yaml:"instructions"`
+}
+
+type ProjectSource struct {
+	Path string `yaml:"path"`
+	Type string `yaml:"type"`
+}
+
+type ProjectRoutingConfig struct {
+	Default   string            `yaml:"default"`
+	TaskTypes map[string]string `yaml:"task_types"`
 }
 
 type LocalModelConfig struct {
@@ -116,6 +145,18 @@ func DefaultConfig() Config {
 				Model:   "qwen3:0.6b",
 			},
 		},
+	}
+}
+
+func DefaultProjectConfig() ProjectConfig {
+	return ProjectConfig{
+		Classification: ProjectClassificationOpenSource,
+		Sources:        []ProjectSource{},
+		Routing: ProjectRoutingConfig{
+			Default:   RoutePreferenceAuto,
+			TaskTypes: map[string]string{},
+		},
+		Instructions: []string{},
 	}
 }
 

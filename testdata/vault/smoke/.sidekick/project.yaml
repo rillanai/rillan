@@ -1,0 +1,16 @@
+name: "smoke-project"
+classification: "open_source"
+
+sources:
+  - path: ".."
+    type: "mixed"
+
+routing:
+  default: "auto"
+  task_types:
+    review: "prefer_local"
+
+system_prompt: ""
+
+instructions:
+  - "Keep outbound context bounded to the current repository."

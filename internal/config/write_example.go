@@ -52,7 +52,37 @@ runtime:
   local_model_base_url: "http://127.0.0.1:11434"
 `
 
+const exampleProjectConfig = `name: "example-project"
+classification: "open_source"
+
+sources:
+  - path: "cmd"
+    type: "go"
+  - path: "internal"
+    type: "go"
+
+routing:
+  default: "auto"
+  task_types:
+    code_generation: "prefer_local"
+    review: "prefer_local"
+
+system_prompt: ""
+
+instructions:
+  - "Keep outbound context tightly bounded to the current task."
+  - "Never include credentials, tokens, or unrelated proprietary material in outbound requests."
+`
+
 func WriteExampleConfig(path string, overwrite bool) error {
+	return writeExampleFile(path, exampleConfig, overwrite)
+}
+
+func WriteExampleProjectConfig(path string, overwrite bool) error {
+	return writeExampleFile(path, exampleProjectConfig, overwrite)
+}
+
+func writeExampleFile(path string, content string, overwrite bool) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return fmt.Errorf("create config directory: %w", err)
 	}
@@ -65,7 +95,7 @@ func WriteExampleConfig(path string, overwrite bool) error {
 		}
 	}
 
-	if err := os.WriteFile(path, []byte(exampleConfig), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		return fmt.Errorf("write config: %w", err)
 	}
 

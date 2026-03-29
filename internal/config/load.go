@@ -25,6 +25,26 @@ func Load(path string) (Config, error) {
 	return LoadWithMode(path, ValidationModeServe)
 }
 
+func LoadProject(path string) (ProjectConfig, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ProjectConfig{}, fmt.Errorf("read project config %s: %w", path, err)
+	}
+
+	cfg := DefaultProjectConfig()
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return ProjectConfig{}, fmt.Errorf("parse project config: %w", err)
+	}
+
+	applyProjectDerivedDefaults(&cfg, path)
+
+	if err := ValidateProject(cfg); err != nil {
+		return ProjectConfig{}, err
+	}
+
+	return cfg, nil
+}
+
 func LoadWithMode(path string, mode ValidationMode) (Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -100,6 +120,28 @@ func applyDerivedDefaults(cfg *Config, configPath string) {
 	}
 	if cfg.Index.Root != "" {
 		cfg.Index.Root = resolveIndexRoot(configPath, cfg.Index.Root)
+	}
+}
+
+func applyProjectDerivedDefaults(cfg *ProjectConfig, projectPath string) {
+	if cfg.Classification == "" {
+		cfg.Classification = DefaultProjectConfig().Classification
+	}
+	if cfg.Routing.Default == "" {
+		cfg.Routing.Default = DefaultProjectConfig().Routing.Default
+	}
+	if cfg.Routing.TaskTypes == nil {
+		cfg.Routing.TaskTypes = map[string]string{}
+	}
+	if cfg.Sources == nil {
+		cfg.Sources = []ProjectSource{}
+	}
+	if cfg.Instructions == nil {
+		cfg.Instructions = []string{}
+	}
+
+	for i := range cfg.Sources {
+		cfg.Sources[i].Path = resolveProjectPath(projectPath, cfg.Sources[i].Path)
 	}
 }
 
@@ -191,6 +233,23 @@ func DefaultConfigPath() string {
 	return filepath.Join(base, "rillan", "config.yaml")
 }
 
+func DefaultProjectConfigPath(root string) string {
+	base := strings.TrimSpace(root)
+	if base == "" {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return filepath.Join(".sidekick", "project.yaml")
+		}
+		base = cwd
+	}
+
+	if absBase, err := filepath.Abs(base); err == nil {
+		base = absBase
+	}
+
+	return filepath.Join(base, ".sidekick", "project.yaml")
+}
+
 func DefaultDataDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -245,6 +304,29 @@ func resolveIndexRoot(configPath string, root string) string {
 	}
 
 	resolved := filepath.Join(baseDir, root)
+	if absResolved, err := filepath.Abs(resolved); err == nil {
+		return absResolved
+	}
+
+	return filepath.Clean(resolved)
+}
+
+func resolveProjectPath(projectPath string, value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+
+	if filepath.IsAbs(value) {
+		return filepath.Clean(value)
+	}
+
+	baseDir := "."
+	if projectPath != "" {
+		baseDir = filepath.Dir(projectPath)
+	}
+
+	resolved := filepath.Join(baseDir, value)
 	if absResolved, err := filepath.Abs(resolved); err == nil {
 		return absResolved
 	}

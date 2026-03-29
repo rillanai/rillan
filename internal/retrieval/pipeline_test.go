@@ -157,6 +157,47 @@ func TestPrepareFallsBackToPlaceholderEmbeddingWhenPrimaryEmbedderFails(t *testi
 	}
 }
 
+func TestPrepareUsesKeywordSearchWhenEmbeddingUnavailable(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "index.db")
+	seedStore(t, dbPath, []index.ChunkRecord{{
+		ID:           "chunk-1",
+		DocumentPath: "notes/local.md",
+		Ordinal:      0,
+		StartLine:    1,
+		EndLine:      2,
+		Content:      "retrieval can use local indexed context",
+		ContentHash:  "chunk-hash",
+	}})
+
+	pipeline := NewPipeline(
+		config.RetrievalConfig{Enabled: true, TopK: 1, MaxContextChars: 400},
+		dbPath,
+		WithQueryEmbedder(failingQueryEmbedder{err: context.DeadlineExceeded}),
+	)
+	req := internalopenai.ChatCompletionRequest{
+		Model: "gpt-4o-mini",
+		Messages: []internalopenai.Message{{
+			Role:    "user",
+			Content: mustMarshalString(t, "how does local retrieval work?"),
+		}},
+	}
+
+	sanitized, _, err := pipeline.Prepare(context.Background(), req)
+	if err != nil {
+		t.Fatalf("Prepare returned error: %v", err)
+	}
+	if len(sanitized.Messages) != 2 {
+		t.Fatalf("messages = %d, want 2", len(sanitized.Messages))
+	}
+	contextMessage, err := internalopenai.MessageText(sanitized.Messages[0])
+	if err != nil {
+		t.Fatalf("MessageText returned error: %v", err)
+	}
+	if !strings.Contains(contextMessage, "notes/local.md:1-2") {
+		t.Fatalf("context message missing source attribution after keyword fallback: %s", contextMessage)
+	}
+}
+
 func TestSummarizeDebugBoundsLongSourceRefsBySize(t *testing.T) {
 	metadata := DebugMetadata{
 		Enabled:  true,
