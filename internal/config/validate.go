@@ -130,6 +130,18 @@ func ValidateForMode(cfg Config, mode ValidationMode) error {
 		}
 	}
 
+	if cfg.Agent.MCP.Enabled {
+		if !cfg.Agent.MCP.ReadOnly {
+			return fmt.Errorf("agent.mcp.read_only must be true in milestone seven")
+		}
+		if cfg.Agent.MCP.MaxOpenFiles < 1 {
+			return fmt.Errorf("agent.mcp.max_open_files must be greater than zero when MCP is enabled")
+		}
+		if cfg.Agent.MCP.MaxDiagnostics < 1 {
+			return fmt.Errorf("agent.mcp.max_diagnostics must be greater than zero when MCP is enabled")
+		}
+	}
+
 	switch mode {
 	case ValidationModeServe:
 		switch normalizeString(cfg.Provider.Type) {

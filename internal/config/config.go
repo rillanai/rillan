@@ -23,12 +23,13 @@ const (
 )
 
 type Config struct {
-	Server     ServerConfig     `yaml:"server"`
-	Provider   ProviderConfig   `yaml:"provider"`
-	Index      IndexConfig      `yaml:"index"`
-	Retrieval  RetrievalConfig  `yaml:"retrieval"`
-	Runtime    RuntimeConfig    `yaml:"runtime"`
-	LocalModel LocalModelConfig `yaml:"local_model"`
+	Server     ServerConfig       `yaml:"server"`
+	Provider   ProviderConfig     `yaml:"provider"`
+	Index      IndexConfig        `yaml:"index"`
+	Retrieval  RetrievalConfig    `yaml:"retrieval"`
+	Runtime    RuntimeConfig      `yaml:"runtime"`
+	LocalModel LocalModelConfig   `yaml:"local_model"`
+	Agent      AgentRuntimeConfig `yaml:"agent"`
 }
 
 type SystemConfig struct {
@@ -140,6 +141,18 @@ type RetrievalConfig struct {
 	MaxContextChars int  `yaml:"max_context_chars"`
 }
 
+type AgentRuntimeConfig struct {
+	Enabled bool      `yaml:"enabled"`
+	MCP     MCPConfig `yaml:"mcp"`
+}
+
+type MCPConfig struct {
+	Enabled        bool `yaml:"enabled"`
+	ReadOnly       bool `yaml:"read_only"`
+	MaxOpenFiles   int  `yaml:"max_open_files"`
+	MaxDiagnostics int  `yaml:"max_diagnostics"`
+}
+
 func DefaultConfig() Config {
 	return Config{
 		Server: ServerConfig{
@@ -180,6 +193,15 @@ func DefaultConfig() Config {
 			QueryRewrite: QueryRewriteConfig{
 				Enabled: false,
 				Model:   "qwen3:0.6b",
+			},
+		},
+		Agent: AgentRuntimeConfig{
+			Enabled: false,
+			MCP: MCPConfig{
+				Enabled:        false,
+				ReadOnly:       true,
+				MaxOpenFiles:   8,
+				MaxDiagnostics: 20,
 			},
 		},
 	}

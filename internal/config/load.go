@@ -145,6 +145,15 @@ func applyDerivedDefaults(cfg *Config, configPath string) {
 	if cfg.LocalModel.QueryRewrite.Model == "" {
 		cfg.LocalModel.QueryRewrite.Model = "qwen3:0.6b"
 	}
+	if cfg.Agent.MCP.MaxOpenFiles == 0 {
+		cfg.Agent.MCP.MaxOpenFiles = DefaultConfig().Agent.MCP.MaxOpenFiles
+	}
+	if cfg.Agent.MCP.MaxDiagnostics == 0 {
+		cfg.Agent.MCP.MaxDiagnostics = DefaultConfig().Agent.MCP.MaxDiagnostics
+	}
+	if !cfg.Agent.MCP.Enabled {
+		cfg.Agent.MCP.ReadOnly = DefaultConfig().Agent.MCP.ReadOnly
+	}
 	if cfg.Index.Root != "" {
 		cfg.Index.Root = resolveIndexRoot(configPath, cfg.Index.Root)
 	}
@@ -215,6 +224,12 @@ func applyEnvOverrides(cfg *Config) {
 	applyStringEnv(&cfg.LocalModel.EmbedModel, "RILLAN_LOCAL_MODEL_EMBED_MODEL")
 	applyBoolEnv(&cfg.LocalModel.QueryRewrite.Enabled, "RILLAN_LOCAL_MODEL_QUERY_REWRITE_ENABLED")
 	applyStringEnv(&cfg.LocalModel.QueryRewrite.Model, "RILLAN_LOCAL_MODEL_QUERY_REWRITE_MODEL")
+
+	applyBoolEnv(&cfg.Agent.Enabled, "RILLAN_AGENT_ENABLED")
+	applyBoolEnv(&cfg.Agent.MCP.Enabled, "RILLAN_AGENT_MCP_ENABLED")
+	applyBoolEnv(&cfg.Agent.MCP.ReadOnly, "RILLAN_AGENT_MCP_READ_ONLY")
+	applyIntEnv(&cfg.Agent.MCP.MaxOpenFiles, "RILLAN_AGENT_MCP_MAX_OPEN_FILES")
+	applyIntEnv(&cfg.Agent.MCP.MaxDiagnostics, "RILLAN_AGENT_MCP_MAX_DIAGNOSTICS")
 }
 
 func applyStringEnv(target *string, keys ...string) {

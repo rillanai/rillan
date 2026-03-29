@@ -116,6 +116,38 @@ func TestValidateAcceptsEnabledLocalModel(t *testing.T) {
 	}
 }
 
+func TestValidateRejectsWritableMCPMode(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Provider.OpenAI.APIKey = "test-key"
+	cfg.Agent.MCP.Enabled = true
+	cfg.Agent.MCP.ReadOnly = false
+
+	if err := Validate(cfg); err == nil {
+		t.Fatal("expected validation error for writable MCP mode")
+	}
+}
+
+func TestValidateRejectsInvalidMCPBounds(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Provider.OpenAI.APIKey = "test-key"
+	cfg.Agent.MCP.Enabled = true
+	cfg.Agent.MCP.MaxOpenFiles = 0
+
+	if err := Validate(cfg); err == nil {
+		t.Fatal("expected validation error for invalid mcp max_open_files")
+	}
+}
+
+func TestValidateAcceptsReadOnlyMCPMode(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Provider.OpenAI.APIKey = "test-key"
+	cfg.Agent.MCP.Enabled = true
+
+	if err := Validate(cfg); err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
+	}
+}
+
 func TestValidateRejectsInvalidRetrievalBounds(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.Provider.OpenAI.APIKey = "test-key"

@@ -169,6 +169,42 @@ func TestLoadAppliesLocalModelDefaults(t *testing.T) {
 	if got, want := cfg.LocalModel.QueryRewrite.Model, "qwen3:0.6b"; got != want {
 		t.Fatalf("query_rewrite.model = %q, want %q", got, want)
 	}
+	if cfg.Agent.Enabled {
+		t.Fatal("expected agent.enabled to default to false")
+	}
+	if cfg.Agent.MCP.Enabled {
+		t.Fatal("expected agent.mcp.enabled to default to false")
+	}
+	if !cfg.Agent.MCP.ReadOnly {
+		t.Fatal("expected agent.mcp.read_only to default to true")
+	}
+}
+
+func TestLoadAppliesAgentEnvOverrides(t *testing.T) {
+	t.Setenv("RILLAN_OPENAI_API_KEY", "test-key")
+	t.Setenv("RILLAN_AGENT_ENABLED", "true")
+	t.Setenv("RILLAN_AGENT_MCP_ENABLED", "true")
+	t.Setenv("RILLAN_AGENT_MCP_READ_ONLY", "true")
+	t.Setenv("RILLAN_AGENT_MCP_MAX_OPEN_FILES", "3")
+	t.Setenv("RILLAN_AGENT_MCP_MAX_DIAGNOSTICS", "4")
+
+	path := writeTempConfig(t, `runtime:
+  vector_store_mode: "embedded"
+`)
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+	if !cfg.Agent.Enabled || !cfg.Agent.MCP.Enabled {
+		t.Fatal("expected agent and mcp env overrides to be applied")
+	}
+	if got, want := cfg.Agent.MCP.MaxOpenFiles, 3; got != want {
+		t.Fatalf("agent.mcp.max_open_files = %d, want %d", got, want)
+	}
+	if got, want := cfg.Agent.MCP.MaxDiagnostics, 4; got != want {
+		t.Fatalf("agent.mcp.max_diagnostics = %d, want %d", got, want)
+	}
 }
 
 func TestLoadResolvesRelativeIndexRootFromConfigDirectory(t *testing.T) {

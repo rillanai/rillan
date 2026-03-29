@@ -8,8 +8,11 @@ import (
 )
 
 const (
-	EventTypeRemoteEgress = "remote_egress"
-	EventTypeRemoteDeny   = "remote_deny"
+	EventTypeRemoteEgress  = "remote_egress"
+	EventTypeRemoteDeny    = "remote_deny"
+	EventTypeAgentProposal = "agent_action_proposed"
+	EventTypeAgentApproved = "agent_action_approved"
+	EventTypeAgentDenied   = "agent_action_denied"
 )
 
 type Event struct {

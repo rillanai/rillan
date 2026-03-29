@@ -39,6 +39,7 @@ func NewRouter(logger *slog.Logger, provider providers.Provider, cfg config.Conf
 		AuditLedgerPath:    opts.AuditLedgerPath,
 		LocalModelRequired: opts.LocalModelRequired,
 	}))
+	mux.Handle("/v1/agent/tasks", NewAgentTaskHandler(logger, opts.AuditRecorder))
 
 	handlerOpts := make([]ChatCompletionsHandlerOption, 0, 4)
 	if opts.ProjectConfig.Name != "" {

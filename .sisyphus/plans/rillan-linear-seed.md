@@ -178,22 +178,21 @@ Definition of done:
 - Routing decisions respect project classification level
 - Policy enforcement is structural and observable in logs
 
-### Milestone 06 - Security Hardening and Packaging
+### Milestone 06 - Security Hardening and Remote-Egress Hardening
 
 Canonical plan: `.sisyphus/plans/rillan-milestone-06.md`
 
 Execution shape in canonical plan:
 - Part 1 — complete the security foundation
 - Part 2 — minimize and trace remote egress
-- Part 3 — package durable local services
 
-Goal: complete the tiered security model and make local deployment durable on macOS and Linux.
+Goal: complete the tiered security model and make remote egress bounded, traceable, and policy-driven.
 
 Current status:
 
 - Part 1 implemented in code: tier-0 encrypted system-config envelope, tier-2 runtime merge, and request-scoped policy trace surface
 - Part 2 implemented in code: targeted remote retrieval minimization, append-only audit ledger, and expanded runtime readiness/status reporting
-- Part 3 implemented as packaging artifacts and validation docs/scripts, but not yet fully proven through live `launchd` and `systemd --user` install/start/stop runs on target OSes
+- Packaging groundwork landed during M06, but packaging is now explicitly deferred to backlog and no longer blocks milestone completion
 
 Issues:
 
@@ -230,19 +229,7 @@ Issues:
    - Enable forensics ("what left my machine and why?"), reproducibility, compliance
    - Dependencies: policy pipeline
 
-5. `Add macOS launchd packaging path`
-   - launchd plist for `rillan serve` as a user-level service
-   - Install/uninstall tooling or documentation
-   - Log routing to system log or dedicated file
-   - Dependencies: daemon startup flow stable
-
-6. `Add Linux systemd packaging path`
-   - systemd user unit file for `rillan serve`
-   - Install/uninstall tooling or documentation
-   - Journal integration for structured logs
-   - Dependencies: daemon startup flow stable
-
-7. `Harden release packaging and local service install flow`
+5. `Harden release packaging and local service install flow`
    - Signed release artifacts with cosign keyless provenance
    - Cross-platform builds: `darwin` and `linux` on `amd64` and `arm64`
    - Checksum files, verification docs
@@ -253,10 +240,37 @@ Definition of done:
 - Full three-tier security model operational (tier-0 encrypted, tier-1 committable, tier-2 ephemeral)
 - IP fragmentation strategies available for proprietary/trade-secret projects
 - Audit ledger records all egress with policy trace
-- macOS and Linux have documented, repeatable service-install flows
-- Release artifacts are signed and verifiable
+
+Deferred packaging backlog after M06:
+
+1. `Add macOS launchd packaging path`
+   - launchd plist for `rillan serve` as a user-level service
+   - Install/uninstall tooling or documentation
+   - Log routing to system log or dedicated file
+   - Dependencies: daemon startup flow stable
+
+2. `Add Linux systemd packaging path`
+   - systemd user unit file for `rillan serve`
+   - Install/uninstall tooling or documentation
+   - Journal integration for structured logs
+   - Dependencies: daemon startup flow stable
+
+3. `Validate live service lifecycle on target platforms`
+   - exercise install/start/stop/remove on real macOS `launchd`
+   - exercise install/start/stop/remove on real Linux `systemd --user`
+   - verify parity with foreground `rillan serve`
+   - Dependencies: packaging artifacts and target OS validation environments
 
 ### Milestone 07 - Agent Runtime (Post-v1)
+
+Canonical plan: `.sisyphus/plans/rillan-milestone-07.md`
+
+The canonical plan now contains the implementation-level breakdown for each M07 phase, including likely file surfaces and verification targets.
+
+Execution shape in canonical plan:
+- Part 1 — build structured agent reasoning surfaces
+- Part 2 — add safe execution through skills and approval gates
+- Part 3 — add thin optional MCP environment awareness
 
 Goal: evolve Rillan from a proxy into a local-first agent runtime with explicit orchestration, role-specific agents, and structured artifact passing.
 

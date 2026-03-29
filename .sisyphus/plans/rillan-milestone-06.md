@@ -1,21 +1,21 @@
-# Rillan Milestone 06 - Security Completion and Service Packaging
+# Rillan Milestone 06 - Security Completion and Remote-Egress Hardening
 
 - **Type**: milestone plan
 - **Status**: active
 - **Depends on**: `.sisyphus/plans/rillan-milestone-05.md`, `.sisyphus/plans/rillan-deployment-baseline.md`, and the M01-M04 foundations recorded in `.sisyphus/plans/rillan-linear-seed.md`
-- **Use this file for**: the canonical execution plan for completing the three-tier security path and making local installs durable on macOS and Linux
+- **Use this file for**: the canonical execution plan for completing the three-tier security path and remote-egress hardening work that follows M05
 
 ## Goal
 
-Complete the first full security model for Rillan and make the daemon installable as a durable user-level service on macOS and Linux.
+Complete the first full security model for Rillan and make remote egress traceable, bounded, and policy-driven.
 
-Milestone 05 established the first outbound policy seam and project-scoped policy config. Milestone 06 should finish the system-local and runtime-ephemeral layers around that seam, make every remote egress traceable, and package `rillan serve` in the OS-native service managers the deployment baseline already points toward.
+Milestone 05 established the first outbound policy seam and project-scoped policy config. Milestone 06 should finish the system-local and runtime-ephemeral layers around that seam and make every remote egress traceable and bounded. Local service packaging is now deferred to backlog work rather than blocking this milestone.
 
 ## Why this milestone now
 
-M05 makes request evaluation structural. M06 is where that structure becomes trustworthy in day-to-day use: machine-local identity rules, ephemeral policy merge, deterministic outbound minimization, durable auditability, and repeatable local service install flows.
+M05 makes request evaluation structural. M06 is where that structure becomes trustworthy in day-to-day use: machine-local identity rules, ephemeral policy merge, deterministic outbound minimization, and durable auditability.
 
-This milestone should make Rillan meaningfully safer and more operable without turning packaging into a release-engineering project or turning fragmentation into a model-quality research track.
+This milestone should make Rillan meaningfully safer without turning packaging into a release-engineering project or turning fragmentation into a model-quality research track.
 
 ## Current Implementation Snapshot
 
@@ -26,25 +26,21 @@ Implemented in the working tree:
 - deterministic remote retrieval minimization before retrieval preparation, including caps that do not widen already-bounded requests
 - append-only local audit ledger for remote egress and remote denial events
 - richer runtime visibility through `rillan status` and `/readyz`
-- user-level `launchd` and `systemd` packaging artifacts, validation scripts, and packaging docs
+- early user-level `launchd` and `systemd` packaging artifacts, validation scripts, and packaging docs landed as groundwork, but packaging no longer blocks the milestone
 
-Still requiring real-platform confirmation before calling the milestone fully complete:
+Still requiring confirmation before calling the milestone fully complete:
 
-- end-to-end service install/start/stop validation on macOS `launchd`
-- end-to-end service install/start/stop validation on Linux `systemd --user`
 - confirmation that the keyring-backed tier-0 path behaves correctly on target OS keychain implementations, not just through mocked tests
 
 ## Inputs and Constraints
 
 - The daemon remains a single primary Go binary.
 - The local API boundary remains the product boundary.
-- macOS and Linux are the only active packaging targets.
-- `launchd` and `systemd` should supervise `rillan serve`; the daemon itself must not grow custom background-daemon logic.
 - Tier-0 system configuration is machine-local only, never committed, and must not leave the machine.
 - Tier-2 merged policy is ephemeral and must never be persisted in combined form.
 - Auditability belongs directly in the outbound policy path; the plan should not treat it as optional observability garnish.
 - Level 1 targeted retrieval belongs in M06; abstraction rewriting and question extraction do not.
-- Release-signing, provenance, cross-arch release hardening, and advanced installer work are valid later concerns but should not become blocking scope for this milestone.
+- Local service packaging, release-signing, provenance, cross-arch release hardening, and advanced installer work are valid later concerns but should not become blocking scope for this milestone.
 
 ## In Scope
 
@@ -52,13 +48,13 @@ Still requiring real-platform confirmation before calling the milestone fully co
 - Tier-2 runtime policy merge that combines tier-0 and tier-1 in memory at request-evaluation time only.
 - Deterministic Level 1 IP fragmentation through targeted retrieval and bounded outbound selection.
 - An append-only audit ledger for remote egress decisions and policy traceability.
-- User-level macOS `launchd` and Linux `systemd` service packaging for `rillan serve`.
 - Readiness/status semantics that expose when retrieval or routing depends on a local-model-backed corpus or unavailable policy dependency.
 
 ## Out of Scope
 
 - Level 2 abstraction rewriting.
 - Level 3 question extraction.
+- User-level service packaging as a completion blocker.
 - Release-signing workflows, cosign provenance, checksums, or artifact-verification docs.
 - System-wide installers or root-owned service setup.
 - Bundled Ollama management, model downloads, or custom background process orchestration.
@@ -71,7 +67,6 @@ Still requiring real-platform confirmation before calling the milestone fully co
 3. A deterministic targeted-retrieval minimization step that reduces outbound context for remote-provider requests.
 4. An append-only audit ledger that records egress decisions, hashes, referenced artifacts, and policy reasons.
 5. Readiness and status outputs that explain when the active corpus, local-model state, or policy requirements make runtime behavior degraded or incompatible.
-6. User-level `launchd` and `systemd` service definitions plus install/uninstall/start/stop guidance or helpers.
 
 ## Proposed File Touch Points
 
@@ -82,7 +77,7 @@ Still requiring real-platform confirmation before calling the milestone fully co
 - `internal/index/` — artifact metadata and source references needed for targeted retrieval and audit traceability.
 - `internal/audit/` or a similarly narrow new package — append-only ledger types and storage.
 - `internal/app/` and `cmd/rillan/` — runtime wiring, status/readiness semantics, and service-oriented operational behavior.
-- `packaging/` or `configs/services/` — `launchd` plist and `systemd` user-unit artifacts.
+- `packaging/` or `configs/services/` — existing service-artifact groundwork that remains available for later backlog packaging work
 - `README.md` and ADRs — only if the runtime contract, packaging doctrine, or security posture needs durable repo-facing documentation.
 
 ## Execution Parts
@@ -185,41 +180,6 @@ Verification:
 - Run `go test ./cmd/rillan/... ./internal/httpapi/... ./internal/index/...` and require status/readiness tests for embedded-only mode, local-model-required mode, and incompatible or unavailable runtime states.
 - Add a smoke path that starts the daemon with and without local-model dependency and verifies readiness semantics match the committed corpus and policy requirements.
 
-### Part 3 - Package durable local services
-
-**Purpose**: make the daemon durable on developer machines without changing its local-first runtime contract or turning packaging into release engineering.
-
-**Includes**:
-
-- Phase 6 - user-level macOS and Linux service packaging
-
-**Part outcome**: `rillan serve` can be installed, supervised, started, stopped, and removed through OS-native user service managers on both supported operating systems.
-
-**Do not move on until**:
-
-- the packaged service uses the same runtime contract as foreground `rillan serve`
-- packaging artifacts validate cleanly on their target platforms
-- install/uninstall/start/stop flows are repeatable and documented or scripted
-
-#### Phase 6 - Package user-level services for macOS and Linux
-
-- Define one shared service contract around `rillan serve` and package it into macOS `launchd` and Linux `systemd` user-level units.
-- Include config path, working directory, log behavior, and environment expectations explicitly.
-- Provide install/uninstall/start/stop guidance or helpers without adding custom daemonization logic.
-- Keep Ollama management independent; the service definition should assume local-model runners remain separately managed.
-
-Verification:
-
-- Add artifact validation tests or scripted checks and require these exact validations to pass:
-  - macOS: `plutil -lint packaging/launchd/*.plist`
-  - Linux: `systemd-analyze --user verify packaging/systemd/*.service`
-  - repo test path: `go test ./cmd/rillan/... ./internal/app/...` for any service-helper or install-path logic added in Go.
-- Add command-level smoke checks for install/uninstall/start/stop flows on representative developer environments:
-  - macOS: `launchctl bootstrap gui/$UID <plist>`, `launchctl print gui/$UID/<label>`, `launchctl bootout gui/$UID/<plist>`
-  - Linux: `systemctl --user daemon-reload`, `systemctl --user start <unit>`, `systemctl --user status <unit>`, `systemctl --user stop <unit>`
-  - expected result: each manager supervises `rillan serve` successfully, uses the intended config path, and surfaces logs through the expected OS-native destination.
-- Require a parity smoke check showing the packaged service and foreground `go run ./cmd/rillan serve --config <path>` expose the same `healthz`/`readyz` behavior aside from supervision and log destination.
-
 ## Milestone-Wide Acceptance Checks
 
 - Tier-0 system policy is machine-local, encrypted or keychain-backed where required, and never leaves the machine.
@@ -227,7 +187,6 @@ Verification:
 - Remote egress paths use deterministic targeted retrieval minimization when policy requires it.
 - Every remote egress or remote denial leaves an audit trace with request identity and policy reason.
 - `rillan status` and `/readyz` explain when the runtime is degraded, incompatible, or fully ready.
-- macOS and Linux each have a repeatable user-level service installation path for `rillan serve`.
 
 ## Risks and Open Questions
 
@@ -235,7 +194,7 @@ Verification:
 - **Audit payload design**: the ledger needs enough fidelity for forensics without becoming a sensitive-data sink.
 - **Minimization sufficiency**: Level 1 targeted retrieval may not be enough for all proprietary/trade-secret cases, but the milestone should not expand into abstraction rewriting to compensate.
 - **Readiness semantics**: the daemon should not become spuriously unready just because an optional local model is down; readiness must track actual runtime dependency.
-- **Packaging drift**: service artifacts can become stale if they are not tied closely to the real runtime contract.
+- **Packaging backlog drift**: deferred service artifacts can go stale if later backlog work is not tied closely to the runtime contract now being finalized.
 
 ## Definition of Done
 
@@ -244,4 +203,12 @@ Verification:
 - Remote egress uses deterministic targeted retrieval minimization when policy requires it.
 - An append-only audit ledger records outbound policy traces and remote egress events.
 - Status and readiness surfaces reflect real runtime dependency and compatibility state.
-- macOS `launchd` and Linux `systemd` user-level service flows are documented or scripted and verified.
+
+## Deferred Backlog After M06
+
+Packaging is no longer a milestone-06 completion requirement, but the groundwork landed during M06 should be preserved as backlog input:
+
+- user-level macOS `launchd` packaging path
+- user-level Linux `systemd --user` packaging path
+- install/uninstall/start/stop lifecycle validation on target platforms
+- parity validation against foreground `rillan serve`

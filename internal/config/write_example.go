@@ -50,6 +50,14 @@ local_model:
 runtime:
   vector_store_mode: "embedded"
   local_model_base_url: "http://127.0.0.1:11434"
+
+agent:
+  enabled: false
+  mcp:
+    enabled: false
+    read_only: true
+    max_open_files: 8
+    max_diagnostics: 20
 `
 
 const exampleProjectConfig = `name: "example-project"
