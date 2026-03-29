@@ -11,6 +11,7 @@ import (
 	"github.com/sidekickos/rillan/internal/config"
 )
 
+// SkillMetric records the recent runtime cost of one skill kind.
 type SkillMetric struct {
 	SkillID           string `json:"skill_id"`
 	InvocationCount   int    `json:"invocation_count"`
@@ -19,14 +20,18 @@ type SkillMetric struct {
 	AverageLatencyMs  int64  `json:"average_latency_ms"`
 }
 
+// SkillMetricsStore is the persisted runtime-state container for skill latency
+// metrics.
 type SkillMetricsStore struct {
 	Skills []SkillMetric `json:"skills"`
 }
 
+// DefaultSkillMetricsPath returns the runtime-state path for skill metrics.
 func DefaultSkillMetricsPath() string {
 	return filepath.Join(config.DefaultDataDir(), "agent", "skill_metrics.json")
 }
 
+// LoadSkillMetrics loads persisted skill metrics from the data directory.
 func LoadSkillMetrics() (SkillMetricsStore, error) {
 	path := DefaultSkillMetricsPath()
 	data, err := os.ReadFile(path)
@@ -46,6 +51,7 @@ func LoadSkillMetrics() (SkillMetricsStore, error) {
 	return store, nil
 }
 
+// SaveSkillMetrics writes persisted skill metrics to the data directory.
 func SaveSkillMetrics(store SkillMetricsStore) error {
 	path := DefaultSkillMetricsPath()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -62,6 +68,8 @@ func SaveSkillMetrics(store SkillMetricsStore) error {
 	return nil
 }
 
+// RecordSkillLatency updates the persisted runtime-state record for one skill
+// invocation.
 func RecordSkillLatency(skillID string, duration time.Duration, observedAt time.Time) error {
 	store, err := LoadSkillMetrics()
 	if err != nil {

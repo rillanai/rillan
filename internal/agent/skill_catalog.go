@@ -17,6 +17,7 @@ import (
 
 const skillCatalogParserVersion = "markdown_v1"
 
+// InstalledSkill describes one managed markdown skill in the local catalog.
 type InstalledSkill struct {
 	ID                string `json:"id"`
 	DisplayName       string `json:"display_name"`
@@ -28,18 +29,24 @@ type InstalledSkill struct {
 	CapabilitySummary string `json:"capability_summary"`
 }
 
+// SkillCatalog is the persisted manifest for installed markdown skills.
 type SkillCatalog struct {
 	Skills []InstalledSkill `json:"skills"`
 }
 
+// DefaultSkillCatalogPath returns the managed manifest path for installed
+// markdown skills.
 func DefaultSkillCatalogPath() string {
 	return filepath.Join(config.DefaultDataDir(), "skills", "catalog.json")
 }
 
+// DefaultManagedSkillPath returns the managed markdown location for a skill ID.
 func DefaultManagedSkillPath(id string) string {
 	return filepath.Join(config.DefaultDataDir(), "skills", id, "SKILL.md")
 }
 
+// LoadSkillCatalog loads the persisted markdown skill catalog from the data
+// directory.
 func LoadSkillCatalog() (SkillCatalog, error) {
 	path := DefaultSkillCatalogPath()
 	data, err := os.ReadFile(path)
@@ -60,6 +67,8 @@ func LoadSkillCatalog() (SkillCatalog, error) {
 	return catalog, nil
 }
 
+// SaveSkillCatalog writes the markdown skill catalog back to the data
+// directory.
 func SaveSkillCatalog(catalog SkillCatalog) error {
 	path := DefaultSkillCatalogPath()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -76,6 +85,8 @@ func SaveSkillCatalog(catalog SkillCatalog) error {
 	return nil
 }
 
+// InstallSkill copies a markdown skill into managed storage and records its
+// manifest entry.
 func InstallSkill(sourcePath string, now time.Time) (InstalledSkill, error) {
 	cleanSource, err := filepath.Abs(strings.TrimSpace(sourcePath))
 	if err != nil {
@@ -130,6 +141,8 @@ func InstallSkill(sourcePath string, now time.Time) (InstalledSkill, error) {
 	return skill, nil
 }
 
+// RemoveSkill deletes a managed markdown skill unless the current project still
+// enables it and force is false.
 func RemoveSkill(id string, force bool) (InstalledSkill, error) {
 	id = normalizeSkillID(id)
 	if !force {
@@ -164,6 +177,7 @@ func RemoveSkill(id string, force bool) (InstalledSkill, error) {
 	return removed, nil
 }
 
+// GetInstalledSkill returns one installed markdown skill by ID.
 func GetInstalledSkill(id string) (InstalledSkill, error) {
 	id = normalizeSkillID(id)
 	catalog, err := LoadSkillCatalog()
@@ -178,6 +192,7 @@ func GetInstalledSkill(id string) (InstalledSkill, error) {
 	return InstalledSkill{}, fmt.Errorf("skill %q not found", id)
 }
 
+// ListInstalledSkills returns all installed markdown skills sorted by ID.
 func ListInstalledSkills() ([]InstalledSkill, error) {
 	catalog, err := LoadSkillCatalog()
 	if err != nil {
