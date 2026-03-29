@@ -17,18 +17,23 @@ var (
 	errNotFound   = keyring.ErrNotFound
 )
 
+// SetKeyringGetForTest overrides keyring reads in tests.
 func SetKeyringGetForTest(fn func(service string, user string) (string, error)) {
 	keyringGet = fn
 }
 
+// SetKeyringSetForTest overrides keyring writes in tests.
 func SetKeyringSetForTest(fn func(service string, user string, password string) error) {
 	keyringSet = fn
 }
 
+// SetKeyringDeleteForTest overrides keyring deletes in tests.
 func SetKeyringDeleteForTest(fn func(service string, user string) error) {
 	keyringDelete = fn
 }
 
+// Credential is the keyring-backed secret payload used for provider, MCP, or
+// control-plane login state.
 type Credential struct {
 	Kind         string `json:"kind,omitempty"`
 	APIKey       string `json:"api_key,omitempty"`
@@ -42,6 +47,8 @@ type Credential struct {
 	StoredAt     string `json:"stored_at,omitempty"`
 }
 
+// Binding describes the endpoint-specific metadata a stored credential must
+// still match when it is reused.
 type Binding struct {
 	Endpoint     string
 	AuthStrategy string
@@ -49,6 +56,7 @@ type Binding struct {
 	Audience     string
 }
 
+// Save writes a credential to the keyring reference identified by ref.
 func Save(ref string, credential Credential) error {
 	service, account, err := parseRef(ref)
 	if err != nil {
@@ -65,6 +73,8 @@ func Save(ref string, credential Credential) error {
 	return nil
 }
 
+// Load reads and decodes a credential from the keyring reference identified by
+// ref.
 func Load(ref string) (Credential, error) {
 	service, account, err := parseRef(ref)
 	if err != nil {
@@ -95,11 +105,14 @@ func Delete(ref string) error {
 	return nil
 }
 
+// Exists reports whether a credential currently exists at ref.
 func Exists(ref string) bool {
 	_, err := Load(ref)
 	return err == nil
 }
 
+// ResolveBearer returns the token material to use for a bound provider or MCP
+// entry, rejecting credentials that no longer match the expected binding.
 func ResolveBearer(ref string, binding Binding) (string, error) {
 	credential, err := Load(ref)
 	if err != nil {

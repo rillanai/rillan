@@ -33,6 +33,10 @@ const (
 	RoutePreferenceLocalOnly   = "local_only"
 )
 
+// Config is the runtime configuration loaded from the main Rillan config file.
+//
+// Schema v2 keeps named LLM and MCP registries alongside the legacy provider
+// shape that the current runtime still consumes internally.
 type Config struct {
 	SchemaVersion int                `yaml:"schema_version,omitempty"`
 	Server        ServerConfig       `yaml:"server"`
@@ -47,21 +51,29 @@ type Config struct {
 	MCPs          MCPRegistryConfig  `yaml:"mcps,omitempty"`
 }
 
+// AuthConfig stores non-secret control-plane auth metadata.
 type AuthConfig struct {
 	Rillan ControlPlaneAuthConfig `yaml:"rillan,omitempty"`
 }
 
+// ControlPlaneAuthConfig describes how Rillan should authenticate to its own
+// team or control-plane endpoint.
 type ControlPlaneAuthConfig struct {
 	Endpoint     string `yaml:"endpoint,omitempty"`
 	AuthStrategy string `yaml:"auth_strategy,omitempty"`
 	SessionRef   string `yaml:"session_ref,omitempty"`
 }
 
+// LLMRegistryConfig stores named LLM provider entries and the active default.
 type LLMRegistryConfig struct {
 	Default   string              `yaml:"default,omitempty"`
 	Providers []LLMProviderConfig `yaml:"providers,omitempty"`
 }
 
+// LLMProviderConfig describes one named LLM provider entry in schema v2.
+//
+// Secrets are referenced indirectly through CredentialRef rather than stored in
+// plaintext config.
 type LLMProviderConfig struct {
 	ID            string   `yaml:"id,omitempty"`
 	Type          string   `yaml:"type,omitempty"`
@@ -72,11 +84,13 @@ type LLMProviderConfig struct {
 	CredentialRef string   `yaml:"credential_ref,omitempty"`
 }
 
+// MCPRegistryConfig stores named MCP endpoint entries and the active default.
 type MCPRegistryConfig struct {
 	Default string            `yaml:"default,omitempty"`
 	Servers []MCPServerConfig `yaml:"servers,omitempty"`
 }
 
+// MCPServerConfig describes one named MCP endpoint entry in schema v2.
 type MCPServerConfig struct {
 	ID           string `yaml:"id,omitempty"`
 	Endpoint     string `yaml:"endpoint,omitempty"`
@@ -118,6 +132,7 @@ type SystemPolicyRules struct {
 	BlockRemoteOnPCIArtifacts bool
 }
 
+// ProjectConfig is the repo-local `.sidekick/project.yaml` configuration.
 type ProjectConfig struct {
 	Name           string                         `yaml:"name"`
 	Classification string                         `yaml:"classification"`
@@ -129,16 +144,19 @@ type ProjectConfig struct {
 	Instructions   []string                       `yaml:"instructions"`
 }
 
+// ProjectProviderSelectionConfig captures repo-local provider choices.
 type ProjectProviderSelectionConfig struct {
 	LLMDefault string   `yaml:"llm_default,omitempty"`
 	LLMAllowed []string `yaml:"llm_allowed,omitempty"`
 	MCPEnabled []string `yaml:"mcp_enabled,omitempty"`
 }
 
+// ProjectAgentConfig stores repo-local agent selections.
 type ProjectAgentConfig struct {
 	Skills ProjectSkillSelectionConfig `yaml:"skills,omitempty"`
 }
 
+// ProjectSkillSelectionConfig stores repo-local enabled markdown skill IDs.
 type ProjectSkillSelectionConfig struct {
 	Enabled []string `yaml:"enabled,omitempty"`
 }
@@ -223,6 +241,8 @@ type MCPConfig struct {
 	MaxDiagnostics int  `yaml:"max_diagnostics"`
 }
 
+// DefaultConfig returns the default runtime configuration, including schema-v2
+// registries and legacy runtime defaults.
 func DefaultConfig() Config {
 	return Config{
 		SchemaVersion: SchemaVersionV2,
@@ -284,6 +304,7 @@ func DefaultConfig() Config {
 	}
 }
 
+// DefaultProjectConfig returns the default repo-local project configuration.
 func DefaultProjectConfig() ProjectConfig {
 	return ProjectConfig{
 		Classification: ProjectClassificationOpenSource,
