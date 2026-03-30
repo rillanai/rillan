@@ -98,6 +98,7 @@ type LLMProviderConfig struct {
 	Command       []string `yaml:"command,omitempty"`
 	AuthStrategy  string   `yaml:"auth_strategy,omitempty"`
 	DefaultModel  string   `yaml:"default_model,omitempty"`
+	ModelPins     []string `yaml:"model_pins,omitempty"`
 	Capabilities  []string `yaml:"capabilities,omitempty"`
 	CredentialRef string   `yaml:"credential_ref,omitempty"`
 }
@@ -130,6 +131,7 @@ type ResolvedLLMProvider struct {
 	Command       []string
 	AuthStrategy  string
 	DefaultModel  string
+	ModelPins     []string
 	Capabilities  []string
 	CredentialRef string
 }
@@ -154,6 +156,7 @@ type LLMProviderPreset struct {
 	Endpoint     string
 	AuthStrategy string
 	DefaultModel string
+	ModelPins    []string
 	Capabilities []string
 }
 
@@ -377,6 +380,7 @@ func BundledLLMProviderPresets() []LLMProviderPreset {
 			Endpoint:     "https://api.openai.com/v1",
 			AuthStrategy: AuthStrategyAPIKey,
 			DefaultModel: "gpt-5",
+			ModelPins:    []string{"gpt-5"},
 			Capabilities: []string{"chat", "reasoning", "tool_calling"},
 		},
 		{
@@ -385,6 +389,7 @@ func BundledLLMProviderPresets() []LLMProviderPreset {
 			Endpoint:     "https://api.anthropic.com",
 			AuthStrategy: AuthStrategyAPIKey,
 			DefaultModel: "claude-sonnet-4-5",
+			ModelPins:    []string{"claude-sonnet-4-5"},
 			Capabilities: []string{"chat", "reasoning", "tool_calling"},
 		},
 		{
@@ -393,6 +398,7 @@ func BundledLLMProviderPresets() []LLMProviderPreset {
 			Endpoint:     "https://api.x.ai/v1",
 			AuthStrategy: AuthStrategyAPIKey,
 			DefaultModel: "grok-4",
+			ModelPins:    []string{"grok-4"},
 			Capabilities: []string{"chat", "reasoning", "tool_calling"},
 		},
 		{
@@ -401,6 +407,7 @@ func BundledLLMProviderPresets() []LLMProviderPreset {
 			Endpoint:     "https://api.deepseek.com/v1",
 			AuthStrategy: AuthStrategyAPIKey,
 			DefaultModel: "deepseek-chat",
+			ModelPins:    []string{"deepseek-chat"},
 			Capabilities: []string{"chat", "reasoning", "tool_calling"},
 		},
 		{
@@ -409,6 +416,7 @@ func BundledLLMProviderPresets() []LLMProviderPreset {
 			Endpoint:     "https://api.moonshot.ai/v1",
 			AuthStrategy: AuthStrategyAPIKey,
 			DefaultModel: "kimi-k2-0711-preview",
+			ModelPins:    []string{"kimi-k2-0711-preview"},
 			Capabilities: []string{"chat", "reasoning", "tool_calling"},
 		},
 		{
@@ -417,6 +425,7 @@ func BundledLLMProviderPresets() []LLMProviderPreset {
 			Endpoint:     "https://api.z.ai/api/paas/v4",
 			AuthStrategy: AuthStrategyAPIKey,
 			DefaultModel: "glm-4.5",
+			ModelPins:    []string{"glm-4.5"},
 			Capabilities: []string{"chat", "reasoning", "tool_calling"},
 		},
 	}
@@ -440,6 +449,7 @@ func (p LLMProviderPreset) ProviderConfig(id string) LLMProviderConfig {
 		Endpoint:      p.Endpoint,
 		AuthStrategy:  p.AuthStrategy,
 		DefaultModel:  p.DefaultModel,
+		ModelPins:     append([]string(nil), p.ModelPins...),
 		Capabilities:  append([]string(nil), p.Capabilities...),
 		CredentialRef: "keyring://rillan/llm/" + id,
 	}
