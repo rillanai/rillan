@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -21,7 +22,9 @@ import (
 	"github.com/sidekickos/rillan/internal/index"
 	internalopenai "github.com/sidekickos/rillan/internal/openai"
 	"github.com/sidekickos/rillan/internal/policy"
+	"github.com/sidekickos/rillan/internal/providers"
 	"github.com/sidekickos/rillan/internal/retrieval"
+	"github.com/sidekickos/rillan/internal/routing"
 )
 
 type fakeProvider struct {
@@ -49,6 +52,18 @@ func (f *fakeProvider) ChatCompletions(_ context.Context, req internalopenai.Cha
 		Header:     http.Header{"Content-Type": []string{"application/json"}},
 		Body:       io.NopCloser(strings.NewReader(`{"id":"ok"}`)),
 	}, nil
+}
+
+type fakeProviderHost struct {
+	providers map[string]providers.Provider
+}
+
+func (f fakeProviderHost) Provider(id string) (providers.Provider, error) {
+	provider, ok := f.providers[id]
+	if !ok {
+		return nil, errors.New("provider not found")
+	}
+	return provider, nil
 }
 
 type staticClassifier struct {
@@ -88,6 +103,55 @@ func TestChatCompletionsHandlerCallsProviderOnce(t *testing.T) {
 	}
 	if got, want := string(provider.body), `{"model":"gpt-4o-mini","messages":[{"role":"user","content":"ping"}]}`; got != want {
 		t.Fatalf("provider body = %s, want %s", got, want)
+	}
+}
+
+func TestChatCompletionsHandlerRoutesTaskTypePreferenceToLocalCandidate(t *testing.T) {
+	var logs bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&logs, nil))
+	remote := &fakeProvider{}
+	local := &fakeProvider{}
+	handler := NewChatCompletionsHandler(
+		logger,
+		remote,
+		nil,
+		WithClassifier(staticClassifier{classification: &policy.IntentClassification{Action: policy.ActionTypeReview}}),
+		WithProjectConfig(config.ProjectConfig{Routing: config.ProjectRoutingConfig{
+			Default:   config.RoutePreferencePreferCloud,
+			TaskTypes: map[string]string{string(policy.ActionTypeReview): config.RoutePreferencePreferLocal},
+		}}),
+		WithProviderHost(fakeProviderHost{providers: map[string]providers.Provider{
+			"remote-gpt": remote,
+			"local-qwen": local,
+		}}),
+		WithRouteCatalog(routing.Catalog{Candidates: []routing.Candidate{
+			{ID: "remote-gpt", Location: routing.LocationRemote, Capabilities: []string{"chat", "reasoning"}},
+			{ID: "local-qwen", Location: routing.LocationLocal, Capabilities: []string{"chat", "reasoning"}},
+		}}),
+		WithRouteStatus(routing.StatusCatalog{Candidates: []routing.CandidateStatus{
+			{Candidate: routing.Candidate{ID: "remote-gpt", Location: routing.LocationRemote, Capabilities: []string{"chat", "reasoning"}}, Available: true},
+			{Candidate: routing.Candidate{ID: "local-qwen", Location: routing.LocationLocal, Capabilities: []string{"chat", "reasoning"}}, Available: true},
+		}}),
+	)
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-4o-mini","messages":[{"role":"user","content":"ping"}]}`))
+
+	handler.ServeHTTP(recorder, request)
+
+	if got, want := recorder.Code, http.StatusOK; got != want {
+		t.Fatalf("status = %d, want %d", got, want)
+	}
+	if got, want := local.called, 1; got != want {
+		t.Fatalf("local provider calls = %d, want %d", got, want)
+	}
+	if got := remote.called; got != 0 {
+		t.Fatalf("remote provider calls = %d, want 0", got)
+	}
+	if !strings.Contains(logs.String(), `"selected_provider_id":"local-qwen"`) {
+		t.Fatalf("route trace logs = %s, want selected local provider", logs.String())
+	}
+	if !strings.Contains(logs.String(), `"preference_source":"task_type"`) {
+		t.Fatalf("route trace logs = %s, want task_type preference source", logs.String())
 	}
 }
 
@@ -452,6 +516,87 @@ func TestChatCompletionsHandlerSystemPolicyCanForceLocalOnly(t *testing.T) {
 	}
 	if got := provider.called; got != 0 {
 		t.Fatalf("provider calls = %d, want 0", got)
+	}
+}
+
+func TestChatCompletionsHandlerRoutesLocalOnlyPolicyToLocalCandidate(t *testing.T) {
+	remote := &fakeProvider{}
+	local := &fakeProvider{}
+	handler := NewChatCompletionsHandler(
+		slog.Default(),
+		remote,
+		nil,
+		WithClassifier(staticClassifier{classification: &policy.IntentClassification{Sensitivity: policy.SensitivityTradeSecret}}),
+		WithSystemConfig(&config.SystemConfig{Policy: config.SystemPolicy{Rules: config.SystemPolicyRules{ForceLocalForTradeSecret: true}}}),
+		WithProviderHost(fakeProviderHost{providers: map[string]providers.Provider{
+			"remote-gpt": remote,
+			"local-qwen": local,
+		}}),
+		WithRouteCatalog(routing.Catalog{Candidates: []routing.Candidate{
+			{ID: "remote-gpt", Location: routing.LocationRemote, Capabilities: []string{"chat", "reasoning", "tool_calling"}},
+			{ID: "local-qwen", Location: routing.LocationLocal, Capabilities: []string{"chat", "reasoning", "tool_calling"}},
+		}}),
+		WithRouteStatus(routing.StatusCatalog{Candidates: []routing.CandidateStatus{
+			{Candidate: routing.Candidate{ID: "remote-gpt", Location: routing.LocationRemote, Capabilities: []string{"chat", "reasoning", "tool_calling"}}, Available: true},
+			{Candidate: routing.Candidate{ID: "local-qwen", Location: routing.LocationLocal, Capabilities: []string{"chat", "reasoning", "tool_calling"}}, Available: true},
+		}}),
+	)
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-4o-mini","messages":[{"role":"user","content":"ping"}]}`))
+
+	handler.ServeHTTP(recorder, request)
+
+	if got, want := recorder.Code, http.StatusOK; got != want {
+		t.Fatalf("status = %d, want %d", got, want)
+	}
+	if got, want := local.called, 1; got != want {
+		t.Fatalf("local provider calls = %d, want %d", got, want)
+	}
+	if got := remote.called; got != 0 {
+		t.Fatalf("remote provider calls = %d, want 0", got)
+	}
+}
+
+func TestChatCompletionsHandlerLogsRejectedRouteCandidates(t *testing.T) {
+	var logs bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&logs, nil))
+	remote := &fakeProvider{}
+	local := &fakeProvider{}
+	handler := NewChatCompletionsHandler(
+		logger,
+		remote,
+		nil,
+		WithClassifier(staticClassifier{classification: &policy.IntentClassification{Sensitivity: policy.SensitivityTradeSecret}}),
+		WithSystemConfig(&config.SystemConfig{Policy: config.SystemPolicy{Rules: config.SystemPolicyRules{ForceLocalForTradeSecret: true}}}),
+		WithProviderHost(fakeProviderHost{providers: map[string]providers.Provider{
+			"remote-gpt": remote,
+			"local-qwen": local,
+		}}),
+		WithRouteCatalog(routing.Catalog{Candidates: []routing.Candidate{
+			{ID: "remote-gpt", Location: routing.LocationRemote, Capabilities: []string{"chat", "reasoning", "tool_calling"}},
+			{ID: "local-qwen", Location: routing.LocationLocal, Capabilities: []string{"chat", "reasoning", "tool_calling"}},
+		}}),
+		WithRouteStatus(routing.StatusCatalog{Candidates: []routing.CandidateStatus{
+			{Candidate: routing.Candidate{ID: "remote-gpt", Location: routing.LocationRemote, Capabilities: []string{"chat", "reasoning", "tool_calling"}}, Available: true},
+			{Candidate: routing.Candidate{ID: "local-qwen", Location: routing.LocationLocal, Capabilities: []string{"chat", "reasoning", "tool_calling"}}, Available: true},
+		}}),
+	)
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-4o-mini","messages":[{"role":"user","content":"ping"}]}`))
+
+	handler.ServeHTTP(recorder, request)
+
+	if got, want := recorder.Code, http.StatusOK; got != want {
+		t.Fatalf("status = %d, want %d", got, want)
+	}
+	if !strings.Contains(logs.String(), `"id":"remote-gpt"`) {
+		t.Fatalf("route trace logs = %s, want remote candidate", logs.String())
+	}
+	if !strings.Contains(logs.String(), `"rejected":true`) {
+		t.Fatalf("route trace logs = %s, want rejected candidate", logs.String())
+	}
+	if !strings.Contains(logs.String(), `"reason":"policy_local_only"`) {
+		t.Fatalf("route trace logs = %s, want policy_local_only rejection", logs.String())
 	}
 }
 

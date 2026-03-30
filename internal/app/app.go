@@ -15,6 +15,7 @@ import (
 	"github.com/sidekickos/rillan/internal/policy"
 	"github.com/sidekickos/rillan/internal/providers"
 	"github.com/sidekickos/rillan/internal/retrieval"
+	"github.com/sidekickos/rillan/internal/routing"
 )
 
 type App struct {
@@ -38,7 +39,8 @@ func New(cfg config.Config, project config.ProjectConfig, system *config.SystemC
 		return nil, err
 	}
 
-	providerHost, err := providers.NewHost(providerHostCfg, &http.Client{})
+	httpClient := &http.Client{}
+	providerHost, err := providers.NewHost(providerHostCfg, httpClient)
 	if err != nil {
 		return nil, err
 	}
@@ -60,6 +62,13 @@ func New(cfg config.Config, project config.ProjectConfig, system *config.SystemC
 	routerOpts.AuditRecorder = auditStore
 	routerOpts.PolicyEvaluator = policy.NewEvaluator()
 	routerOpts.PolicyScanner = policy.DefaultScanner()
+	routerOpts.ProviderHost = providerHost
+	routerOpts.RouteCatalog = routing.BuildCatalog(cfg, project)
+	routerOpts.RouteStatus = routing.BuildStatusCatalog(context.Background(), routing.StatusInput{
+		Catalog:    routerOpts.RouteCatalog,
+		Config:     cfg,
+		HTTPClient: httpClient,
+	})
 	if cfg.Retrieval.Enabled {
 		routerOpts.RetrievalMode = "targeted_remote"
 	} else {

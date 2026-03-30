@@ -21,18 +21,26 @@ import (
 	"github.com/sidekickos/rillan/internal/policy"
 	"github.com/sidekickos/rillan/internal/providers"
 	"github.com/sidekickos/rillan/internal/retrieval"
+	"github.com/sidekickos/rillan/internal/routing"
 )
 
+type providerHost interface {
+	Provider(id string) (providers.Provider, error)
+}
+
 type ChatCompletionsHandler struct {
-	logger     *slog.Logger
-	provider   providers.Provider
-	pipeline   *retrieval.Pipeline
-	project    config.ProjectConfig
-	system     *config.SystemConfig
-	audit      audit.Recorder
-	evaluator  policy.Evaluator
-	scanner    *policy.Scanner
-	classifier classify.Classifier
+	logger       *slog.Logger
+	provider     providers.Provider
+	providerHost providerHost
+	pipeline     *retrieval.Pipeline
+	project      config.ProjectConfig
+	system       *config.SystemConfig
+	audit        audit.Recorder
+	evaluator    policy.Evaluator
+	scanner      *policy.Scanner
+	classifier   classify.Classifier
+	routeCatalog routing.Catalog
+	routeStatus  routing.StatusCatalog
 }
 
 type ChatCompletionsHandlerOption func(*ChatCompletionsHandler)
@@ -105,6 +113,24 @@ func WithPolicyScanner(scanner *policy.Scanner) ChatCompletionsHandlerOption {
 func WithClassifier(classifier classify.Classifier) ChatCompletionsHandlerOption {
 	return func(handler *ChatCompletionsHandler) {
 		handler.classifier = classifier
+	}
+}
+
+func WithProviderHost(host providerHost) ChatCompletionsHandlerOption {
+	return func(handler *ChatCompletionsHandler) {
+		handler.providerHost = host
+	}
+}
+
+func WithRouteCatalog(catalog routing.Catalog) ChatCompletionsHandlerOption {
+	return func(handler *ChatCompletionsHandler) {
+		handler.routeCatalog = catalog
+	}
+}
+
+func WithRouteStatus(status routing.StatusCatalog) ChatCompletionsHandlerOption {
+	return func(handler *ChatCompletionsHandler) {
+		handler.routeStatus = status
 	}
 }
 
@@ -181,18 +207,26 @@ func (h *ChatCompletionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		})
 		internalopenai.WriteError(w, http.StatusForbidden, "policy_violation", "outbound request blocked by policy")
 		return
-	case policy.VerdictLocalOnly:
-		h.recordAudit(r.Context(), audit.Event{
-			Type:           audit.EventTypeRemoteDeny,
-			RequestID:      RequestIDFromContext(r.Context()),
-			Provider:       h.provider.Name(),
-			Model:          request.Model,
-			Verdict:        string(preflight.Verdict),
-			Reason:         preflight.Reason,
-			RouteSource:    string(preflight.Trace.RouteSource),
-			OutboundSHA256: audit.HashBytes(body),
-		})
-		internalopenai.WriteError(w, http.StatusForbidden, "policy_violation", "request requires local-only handling")
+	}
+	routeSelection, err := h.resolveRoute(request.Model, internalopenai.RequiredCapabilities(request), preflight.Verdict, classification)
+	h.logRouteDecision(r.Context(), routeSelection)
+	if err != nil {
+		if preflight.Verdict == policy.VerdictLocalOnly {
+			h.recordAudit(r.Context(), audit.Event{
+				Type:           audit.EventTypeRemoteDeny,
+				RequestID:      RequestIDFromContext(r.Context()),
+				Provider:       routeSelection.ProviderKey(),
+				Model:          request.Model,
+				Verdict:        string(preflight.Verdict),
+				Reason:         preflight.Reason,
+				RouteSource:    string(preflight.Trace.RouteSource),
+				OutboundSHA256: audit.HashBytes(body),
+			})
+			internalopenai.WriteError(w, http.StatusForbidden, "policy_violation", "request requires local-only handling")
+			return
+		}
+		h.logger.Error("chat route resolution failed", "request_id", RequestIDFromContext(r.Context()), "error", err.Error())
+		internalopenai.WriteError(w, http.StatusServiceUnavailable, "upstream_unavailable", "no eligible runtime provider available")
 		return
 	}
 	requestForPreparation := request
@@ -202,7 +236,9 @@ func (h *ChatCompletionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 			internalopenai.WriteError(w, http.StatusBadRequest, "invalid_request_error", settingsErr.Error())
 			return
 		}
-		requestForPreparation = applyRetrievalPlan(request, preflight.Retrieval, settings)
+		if routeSelection.IsRemote() {
+			requestForPreparation = applyRetrievalPlan(request, preflight.Retrieval, settings)
+		}
 	}
 
 	if h.pipeline != nil && h.pipeline.NeedsPreparation(requestForPreparation) {
@@ -218,7 +254,7 @@ func (h *ChatCompletionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		applyRetrievalDebugHeaders(w.Header(), summary)
 		h.logger.Info("retrieval context compiled",
 			"request_id", RequestIDFromContext(r.Context()),
-			"provider", h.provider.Name(),
+			"provider", routeSelection.ProviderKey(),
 			"top_k", summary.TopK,
 			"sources", summary.SourceCount,
 			"truncated", summary.Truncated,
@@ -237,7 +273,7 @@ func (h *ChatCompletionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		Phase:          policy.EvaluationPhaseEgress,
 	})
 	if err != nil {
-		h.logger.Error("policy evaluation failed", "request_id", RequestIDFromContext(r.Context()), "provider", h.provider.Name(), "error", err.Error())
+		h.logger.Error("policy evaluation failed", "request_id", RequestIDFromContext(r.Context()), "provider", routeSelection.ProviderKey(), "error", err.Error())
 		internalopenai.WriteError(w, http.StatusInternalServerError, "policy_error", "policy evaluation failed")
 		return
 	}
@@ -246,7 +282,7 @@ func (h *ChatCompletionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 
 	h.logger.Info("policy evaluated",
 		"request_id", RequestIDFromContext(r.Context()),
-		"provider", h.provider.Name(),
+		"provider", routeSelection.ProviderKey(),
 		"verdict", evaluation.Verdict,
 		"reason", evaluation.Reason,
 		"route_source", evaluation.Trace.RouteSource,
@@ -258,7 +294,7 @@ func (h *ChatCompletionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		h.recordAudit(r.Context(), audit.Event{
 			Type:           audit.EventTypeRemoteDeny,
 			RequestID:      RequestIDFromContext(r.Context()),
-			Provider:       h.provider.Name(),
+			Provider:       routeSelection.ProviderKey(),
 			Model:          outboundRequest.Model,
 			Verdict:        string(evaluation.Verdict),
 			Reason:         evaluation.Reason,
@@ -269,25 +305,27 @@ func (h *ChatCompletionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		internalopenai.WriteError(w, http.StatusForbidden, "policy_violation", "outbound request blocked by policy")
 		return
 	case policy.VerdictLocalOnly:
-		h.recordAudit(r.Context(), audit.Event{
-			Type:           audit.EventTypeRemoteDeny,
-			RequestID:      RequestIDFromContext(r.Context()),
-			Provider:       h.provider.Name(),
-			Model:          outboundRequest.Model,
-			Verdict:        string(evaluation.Verdict),
-			Reason:         evaluation.Reason,
-			RouteSource:    string(evaluation.Trace.RouteSource),
-			OutboundSHA256: audit.HashBytes(outboundBody),
-			SourceRefs:     sourceRefsFromRequest(outboundRequest),
-		})
-		internalopenai.WriteError(w, http.StatusForbidden, "policy_violation", "request requires local-only handling")
-		return
+		if !routeSelection.IsLocal() {
+			h.recordAudit(r.Context(), audit.Event{
+				Type:           audit.EventTypeRemoteDeny,
+				RequestID:      RequestIDFromContext(r.Context()),
+				Provider:       routeSelection.ProviderKey(),
+				Model:          outboundRequest.Model,
+				Verdict:        string(evaluation.Verdict),
+				Reason:         evaluation.Reason,
+				RouteSource:    string(evaluation.Trace.RouteSource),
+				OutboundSHA256: audit.HashBytes(outboundBody),
+				SourceRefs:     sourceRefsFromRequest(outboundRequest),
+			})
+			internalopenai.WriteError(w, http.StatusForbidden, "policy_violation", "request requires local-only handling")
+			return
+		}
 	}
 
 	h.recordAudit(r.Context(), audit.Event{
 		Type:           audit.EventTypeRemoteEgress,
 		RequestID:      RequestIDFromContext(r.Context()),
-		Provider:       h.provider.Name(),
+		Provider:       routeSelection.ProviderKey(),
 		Model:          outboundRequest.Model,
 		Verdict:        string(evaluation.Verdict),
 		Reason:         evaluation.Reason,
@@ -296,9 +334,9 @@ func (h *ChatCompletionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		SourceRefs:     sourceRefsFromRequest(outboundRequest),
 	})
 
-	response, err := h.provider.ChatCompletions(r.Context(), outboundRequest, outboundBody)
+	response, err := routeSelection.Provider.ChatCompletions(r.Context(), outboundRequest, outboundBody)
 	if err != nil {
-		h.logger.Error("upstream request failed", "request_id", RequestIDFromContext(r.Context()), "provider", h.provider.Name(), "error", err.Error())
+		h.logger.Error("upstream request failed", "request_id", RequestIDFromContext(r.Context()), "provider", routeSelection.ProviderKey(), "error", err.Error())
 		status := http.StatusBadGateway
 		if isTimeout(err) {
 			status = http.StatusGatewayTimeout
@@ -312,7 +350,140 @@ func (h *ChatCompletionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(response.StatusCode)
 
 	if err := copyBody(w, response.Body, outboundRequest.Stream || strings.Contains(response.Header.Get("Content-Type"), "text/event-stream")); err != nil {
-		h.logger.Error("proxy response copy failed", "request_id", RequestIDFromContext(r.Context()), "provider", h.provider.Name(), "error", err.Error())
+		h.logger.Error("proxy response copy failed", "request_id", RequestIDFromContext(r.Context()), "provider", routeSelection.ProviderKey(), "error", err.Error())
+	}
+}
+
+type chatRouteSelection struct {
+	Provider   providers.Provider
+	ProviderID string
+	Candidate  *routing.Candidate
+	Decision   *routing.Decision
+}
+
+func (s chatRouteSelection) ProviderKey() string {
+	if s.ProviderID != "" {
+		return s.ProviderID
+	}
+	if s.Provider != nil {
+		return s.Provider.Name()
+	}
+	return ""
+}
+
+func (s chatRouteSelection) IsLocal() bool {
+	return s.Candidate != nil && s.Candidate.Location == routing.LocationLocal
+}
+
+func (s chatRouteSelection) IsRemote() bool {
+	return s.Candidate == nil || s.Candidate.Location == routing.LocationRemote
+}
+
+func (h *ChatCompletionsHandler) resolveRoute(requestedModel string, requiredCapabilities []string, verdict policy.Verdict, classification *policy.IntentClassification) (chatRouteSelection, error) {
+	if h.providerHost == nil {
+		if verdict == policy.VerdictLocalOnly {
+			return chatRouteSelection{Provider: h.provider, ProviderID: h.provider.Name()}, fmt.Errorf("no local runtime provider available")
+		}
+		return chatRouteSelection{Provider: h.provider, ProviderID: h.provider.Name()}, nil
+	}
+
+	action := policy.ActionTypeGeneralQA
+	if classification != nil && classification.Action != "" {
+		action = classification.Action
+	}
+	decision := routing.Decide(routing.DecisionInput{
+		RequestedModel:       requestedModel,
+		RequiredCapabilities: requiredCapabilities,
+		Action:               action,
+		Project:              h.project,
+		PolicyVerdict:        verdict,
+		Candidates:           h.availableRouteCandidates(),
+	})
+	selection := chatRouteSelection{Decision: &decision}
+	if decision.Selected == nil {
+		return selection, fmt.Errorf("no eligible runtime provider available")
+	}
+
+	provider, err := h.providerHost.Provider(decision.Selected.ID)
+	if err != nil {
+		return selection, err
+	}
+	selection.Provider = provider
+	selection.ProviderID = decision.Selected.ID
+	chosen := *decision.Selected
+	selection.Candidate = &chosen
+	return selection, nil
+}
+
+func (h *ChatCompletionsHandler) availableRouteCandidates() []routing.Candidate {
+	if len(h.routeStatus.Candidates) > 0 {
+		candidates := make([]routing.Candidate, 0, len(h.routeStatus.Candidates))
+		for _, status := range h.routeStatus.Candidates {
+			if !status.Available {
+				continue
+			}
+			if h.providerHost != nil {
+				if _, err := h.providerHost.Provider(status.Candidate.ID); err != nil {
+					continue
+				}
+			}
+			candidates = append(candidates, status.Candidate)
+		}
+		return candidates
+	}
+
+	if len(h.routeCatalog.Candidates) == 0 {
+		return nil
+	}
+	if h.providerHost == nil {
+		return append([]routing.Candidate(nil), h.routeCatalog.Candidates...)
+	}
+
+	candidates := make([]routing.Candidate, 0, len(h.routeCatalog.Candidates))
+	for _, candidate := range h.routeCatalog.Candidates {
+		if _, err := h.providerHost.Provider(candidate.ID); err != nil {
+			continue
+		}
+		candidates = append(candidates, candidate)
+	}
+	return candidates
+}
+
+func (h *ChatCompletionsHandler) logRouteDecision(ctx context.Context, selection chatRouteSelection) {
+	if selection.Decision == nil {
+		return
+	}
+	h.logger.Info("chat route selected",
+		"request_id", RequestIDFromContext(ctx),
+		"provider", selection.ProviderKey(),
+		"route_trace", routeTraceLogValue(*selection.Decision, selection.ProviderKey()),
+	)
+}
+
+func routeTraceLogValue(decision routing.Decision, selectedProviderID string) map[string]any {
+	candidates := make([]map[string]any, 0, len(decision.Trace.Candidates))
+	for _, candidate := range decision.Trace.Candidates {
+		candidates = append(candidates, map[string]any{
+			"id":                   candidate.ID,
+			"location":             string(candidate.Location),
+			"eligible":             candidate.Eligible,
+			"rejected":             candidate.Rejected,
+			"selected":             candidate.Selected,
+			"reason":               candidate.Reason,
+			"missing_capabilities": candidate.MissingCapabilities,
+			"preference_score":     candidate.PreferenceScore,
+			"task_strength":        candidate.TaskStrength,
+		})
+	}
+	return map[string]any{
+		"policy_verdict":        string(decision.Trace.PolicyVerdict),
+		"model_target":          decision.Trace.ModelTarget,
+		"model_match":           decision.Trace.ModelMatch,
+		"required_capabilities": decision.Trace.RequiredCapabilities,
+		"preference":            decision.Trace.Preference,
+		"preference_source":     string(decision.Trace.PreferenceSource),
+		"selected_provider_id":  selectedProviderID,
+		"candidates":            candidates,
 	}
 }
 
