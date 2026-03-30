@@ -113,12 +113,12 @@ All other imports are from the Go standard library.
    ```go
    type Provider interface {
        Name() string
-       Ready() bool
-       ChatCompletions(ctx context.Context, req openai.ChatCompletionRequest) (*openai.ChatCompletionResponse, error)
+       Ready(context.Context) error
+       ChatCompletions(context.Context, openai.ChatCompletionRequest, []byte) (*http.Response, error)
    }
    ```
-3. Add the provider type as a constant in `internal/config/config.go`.
-4. Wire the new type into the `providers.New()` factory in `internal/providers/provider.go`.
+3. Add or update preset/backend metadata in `internal/config/config.go`.
+4. Wire the new family into the provider host adapter construction path in `internal/providers/provider.go` / `internal/providers/host.go`.
 
 ## Adding Config Fields
 
