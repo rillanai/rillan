@@ -35,6 +35,27 @@ func TestMCPAddCreatesServerEntry(t *testing.T) {
 	}
 }
 
+func TestMCPAddSupportsStdioTransportWithCommand(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	cmd := newMCPCommand()
+	cmd.SetArgs([]string{"--config", configPath, "add", "repo-plugin", "--transport", "stdio", "--command", "rillan-mcp-demo", "--auth-strategy", "none"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute returned error: %v", err)
+	}
+
+	cfg, err := config.LoadForEdit(configPath)
+	if err != nil {
+		t.Fatalf("LoadForEdit returned error: %v", err)
+	}
+	if got, want := cfg.MCPs.Servers[0].Transport, "stdio"; got != want {
+		t.Fatalf("transport = %q, want %q", got, want)
+	}
+	if got, want := strings.Join(cfg.MCPs.Servers[0].Command, ","), "rillan-mcp-demo"; got != want {
+		t.Fatalf("command = %q, want %q", got, want)
+	}
+}
+
 func TestMCPUseSwitchesDefaultServer(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
 	cfg := config.DefaultConfig()
@@ -126,7 +147,7 @@ func TestMCPLoginAndLogoutStoreCredentialsSecurely(t *testing.T) {
 	secretstoreTestHooks(t, store)
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
 	cfg := config.DefaultConfig()
-	cfg.MCPs.Servers = []config.MCPServerConfig{{ID: "ide-local", Endpoint: "http://127.0.0.1:8765", Transport: "http", AuthStrategy: config.AuthStrategyAPIKey, ReadOnly: true, SessionRef: sessionRefForMCP("ide-local")}}
+	cfg.MCPs.Servers = []config.MCPServerConfig{{ID: "ide-local", Endpoint: "http://127.0.0.1:8765", Transport: "http", AuthStrategy: config.AuthStrategyAPIKey, ReadOnly: true, CredentialRef: credentialRefForMCP("ide-local")}}
 	if err := config.Write(configPath, cfg); err != nil {
 		t.Fatalf("Write returned error: %v", err)
 	}
@@ -139,7 +160,7 @@ func TestMCPLoginAndLogoutStoreCredentialsSecurely(t *testing.T) {
 	if _, ok := store[fmt.Sprintf("rillan/mcp/%s", "ide-local")]; !ok {
 		t.Fatal("expected keyring entry to be created")
 	}
-	if !secretstore.Exists(sessionRefForMCP("ide-local")) {
+	if !secretstore.Exists(credentialRefForMCP("ide-local")) {
 		t.Fatal("expected mcp credential ref to resolve")
 	}
 
@@ -148,7 +169,7 @@ func TestMCPLoginAndLogoutStoreCredentialsSecurely(t *testing.T) {
 	if err := logout.Execute(); err != nil {
 		t.Fatalf("logout Execute returned error: %v", err)
 	}
-	if secretstore.Exists(sessionRefForMCP("ide-local")) {
+	if secretstore.Exists(credentialRefForMCP("ide-local")) {
 		t.Fatal("expected mcp credential ref to be cleared")
 	}
 }

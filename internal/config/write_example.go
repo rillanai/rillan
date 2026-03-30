@@ -24,7 +24,8 @@ llms:
   default: "openai"
   providers:
     - id: "openai"
-      type: "openai"
+      backend: "openai_compatible"
+      transport: "http"
       endpoint: "https://api.openai.com/v1"
       auth_strategy: "browser_oidc"
       default_model: "gpt-5"

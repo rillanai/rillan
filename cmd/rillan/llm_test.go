@@ -14,7 +14,7 @@ import (
 func TestLLMAddCreatesProviderEntry(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
 	cmd := newLLMCommand()
-	cmd.SetArgs([]string{"--config", configPath, "add", "work-gpt", "--type", "openai", "--endpoint", "https://api.openai.com/v1", "--default-model", "gpt-5", "--capability", "chat", "--capability", "reasoning"})
+	cmd.SetArgs([]string{"--config", configPath, "add", "work-gpt", "--backend", "openai_compatible", "--transport", "http", "--endpoint", "https://api.openai.com/v1", "--default-model", "gpt-5", "--capability", "chat", "--capability", "reasoning"})
 
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("Execute returned error: %v", err)
@@ -24,15 +24,18 @@ func TestLLMAddCreatesProviderEntry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadForEdit returned error: %v", err)
 	}
-	if got, want := cfg.LLMs.Default, "work-gpt"; got != want {
+	if got, want := cfg.LLMs.Default, "openai"; got != want {
 		t.Fatalf("llms.default = %q, want %q", got, want)
 	}
-	if got, want := len(cfg.LLMs.Providers), 1; got != want {
+	if got, want := len(cfg.LLMs.Providers), 2; got != want {
 		t.Fatalf("len(llms.providers) = %d, want %d", got, want)
 	}
-	provider := cfg.LLMs.Providers[0]
-	if got, want := provider.AuthStrategy, config.AuthStrategyBrowserOIDC; got != want {
+	provider := cfg.LLMs.Providers[1]
+	if got, want := provider.AuthStrategy, config.AuthStrategyAPIKey; got != want {
 		t.Fatalf("auth_strategy = %q, want %q", got, want)
+	}
+	if got, want := provider.Backend, config.LLMBackendOpenAICompatible; got != want {
+		t.Fatalf("backend = %q, want %q", got, want)
 	}
 	if got, want := strings.Join(provider.Capabilities, ","), "chat,reasoning"; got != want {
 		t.Fatalf("capabilities = %q, want %q", got, want)
@@ -43,15 +46,15 @@ func TestLLMUseSwitchesDefaultProvider(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
 	cfg := config.DefaultConfig()
 	cfg.LLMs.Providers = []config.LLMProviderConfig{
-		{ID: "work-gpt", Type: config.ProviderOpenAI, Endpoint: "https://api.openai.com/v1", AuthStrategy: config.AuthStrategyBrowserOIDC},
-		{ID: "kimi-prod", Type: config.ProviderKimi, Endpoint: "https://api.moonshot.ai/v1", AuthStrategy: config.AuthStrategyAPIKey},
+		{ID: "work-gpt", Backend: config.LLMBackendOpenAICompatible, Transport: config.LLMTransportHTTP, Endpoint: "https://api.openai.com/v1", AuthStrategy: config.AuthStrategyBrowserOIDC},
+		{ID: "repo-plugin", Backend: "custom-backend", Transport: config.LLMTransportSTDIO, Command: []string{"rillan-provider-demo"}, AuthStrategy: config.AuthStrategyNone},
 	}
 	if err := config.Write(configPath, cfg); err != nil {
 		t.Fatalf("Write returned error: %v", err)
 	}
 
 	cmd := newLLMCommand()
-	cmd.SetArgs([]string{"--config", configPath, "use", "kimi-prod"})
+	cmd.SetArgs([]string{"--config", configPath, "use", "repo-plugin"})
 
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("Execute returned error: %v", err)
@@ -61,7 +64,7 @@ func TestLLMUseSwitchesDefaultProvider(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadForEdit returned error: %v", err)
 	}
-	if got, want := reloaded.LLMs.Default, "kimi-prod"; got != want {
+	if got, want := reloaded.LLMs.Default, "repo-plugin"; got != want {
 		t.Fatalf("llms.default = %q, want %q", got, want)
 	}
 }
@@ -70,7 +73,7 @@ func TestLLMRemoveDeletesProviderEntry(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
 	cfg := config.DefaultConfig()
 	cfg.LLMs.Default = "work-gpt"
-	cfg.LLMs.Providers = []config.LLMProviderConfig{{ID: "work-gpt", Type: config.ProviderOpenAI, Endpoint: "https://api.openai.com/v1", AuthStrategy: config.AuthStrategyBrowserOIDC}}
+	cfg.LLMs.Providers = []config.LLMProviderConfig{{ID: "work-gpt", Backend: config.LLMBackendOpenAICompatible, Transport: config.LLMTransportHTTP, Endpoint: "https://api.openai.com/v1", AuthStrategy: config.AuthStrategyBrowserOIDC}}
 	if err := config.Write(configPath, cfg); err != nil {
 		t.Fatalf("Write returned error: %v", err)
 	}
@@ -86,11 +89,11 @@ func TestLLMRemoveDeletesProviderEntry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadForEdit returned error: %v", err)
 	}
-	if got := len(reloaded.LLMs.Providers); got != 0 {
-		t.Fatalf("len(llms.providers) = %d, want 0", got)
+	if got := len(reloaded.LLMs.Providers); got != 1 {
+		t.Fatalf("len(llms.providers) = %d, want 1", got)
 	}
-	if reloaded.LLMs.Default != "" {
-		t.Fatalf("llms.default = %q, want empty", reloaded.LLMs.Default)
+	if got, want := reloaded.LLMs.Default, "openai"; got != want {
+		t.Fatalf("llms.default = %q, want %q", got, want)
 	}
 }
 
@@ -99,8 +102,8 @@ func TestLLMListPrintsSortedProviders(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.LLMs.Default = "work-gpt"
 	cfg.LLMs.Providers = []config.LLMProviderConfig{
-		{ID: "z-local", Type: config.ProviderLocal, Endpoint: "http://127.0.0.1:11434", AuthStrategy: config.AuthStrategyAPIKey},
-		{ID: "work-gpt", Type: config.ProviderOpenAI, Endpoint: "https://api.openai.com/v1", AuthStrategy: config.AuthStrategyBrowserOIDC},
+		{ID: "repo-plugin", Backend: "custom-backend", Transport: config.LLMTransportSTDIO, Command: []string{"rillan-provider-demo"}, AuthStrategy: config.AuthStrategyNone},
+		{ID: "work-gpt", Backend: config.LLMBackendOpenAICompatible, Transport: config.LLMTransportHTTP, Endpoint: "https://api.openai.com/v1", AuthStrategy: config.AuthStrategyBrowserOIDC},
 	}
 	if err := config.Write(configPath, cfg); err != nil {
 		t.Fatalf("Write returned error: %v", err)
@@ -120,7 +123,10 @@ func TestLLMListPrintsSortedProviders(t *testing.T) {
 	if !strings.Contains(output, "default: work-gpt") {
 		t.Fatalf("output missing default:\n%s", output)
 	}
-	if strings.Index(output, "- id: work-gpt") > strings.Index(output, "- id: z-local") {
+	if strings.Index(output, "- id: repo-plugin") > strings.Index(output, "- id: work-gpt") {
+		t.Fatalf("providers not sorted by id:\n%s", output)
+	}
+	if !strings.Contains(output, "transport: stdio") {
 		t.Fatalf("providers not sorted by id:\n%s", output)
 	}
 }
@@ -130,7 +136,7 @@ func TestLLMLoginAndLogoutStoreCredentialsSecurely(t *testing.T) {
 	secretstoreTestHooks(t, store)
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
 	cfg := config.DefaultConfig()
-	cfg.LLMs.Providers = []config.LLMProviderConfig{{ID: "work-gpt", Type: config.ProviderOpenAI, Endpoint: "https://api.openai.com/v1", AuthStrategy: config.AuthStrategyBrowserOIDC, CredentialRef: credentialRefForLLM("work-gpt")}}
+	cfg.LLMs.Providers = []config.LLMProviderConfig{{ID: "work-gpt", Backend: config.LLMBackendOpenAICompatible, Transport: config.LLMTransportHTTP, Endpoint: "https://api.openai.com/v1", AuthStrategy: config.AuthStrategyBrowserOIDC, CredentialRef: credentialRefForLLM("work-gpt")}}
 	if err := config.Write(configPath, cfg); err != nil {
 		t.Fatalf("Write returned error: %v", err)
 	}

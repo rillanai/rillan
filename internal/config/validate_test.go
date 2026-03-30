@@ -4,6 +4,8 @@ import "testing"
 
 func TestValidateRejectsImplicitAnthropic(t *testing.T) {
 	cfg := DefaultConfig()
+	cfg.SchemaVersion = SchemaVersionV1
+	cfg.LLMs = LLMRegistryConfig{}
 	cfg.Provider.Type = ProviderAnthropic
 	cfg.Provider.Anthropic.APIKey = "anthropic-key"
 	cfg.Provider.OpenAI.APIKey = ""
@@ -16,6 +18,8 @@ func TestValidateRejectsImplicitAnthropic(t *testing.T) {
 
 func TestValidateAcceptsExplicitAnthropicOptIn(t *testing.T) {
 	cfg := DefaultConfig()
+	cfg.SchemaVersion = SchemaVersionV1
+	cfg.LLMs = LLMRegistryConfig{}
 	cfg.Provider.Type = ProviderAnthropic
 	cfg.Provider.Anthropic.Enabled = true
 	cfg.Provider.Anthropic.APIKey = "anthropic-key"
@@ -26,12 +30,11 @@ func TestValidateAcceptsExplicitAnthropicOptIn(t *testing.T) {
 	}
 }
 
-func TestValidateRequiresOpenAIKeyForDefaultProvider(t *testing.T) {
+func TestValidateAcceptsSchemaV2DefaultProviderWithoutInlineSecret(t *testing.T) {
 	cfg := DefaultConfig()
 
-	err := Validate(cfg)
-	if err == nil {
-		t.Fatal("Validate returned nil error without an OpenAI key")
+	if err := Validate(cfg); err != nil {
+		t.Fatalf("Validate returned error: %v", err)
 	}
 }
 
@@ -44,12 +47,12 @@ func TestValidateForIndexRequiresRootOnly(t *testing.T) {
 	}
 }
 
-func TestValidateForServeRequiresProviderKey(t *testing.T) {
+func TestValidateForServeRejectsInvalidLLMTransport(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.Index.Root = "/tmp/project"
+	cfg.LLMs.Providers[0].Transport = "grpc"
 
 	if err := ValidateForMode(cfg, ValidationModeServe); err == nil {
-		t.Fatal("expected serve validation to require a provider key")
+		t.Fatal("expected serve validation to reject invalid llm transport")
 	}
 }
 
@@ -63,6 +66,8 @@ func TestValidateForStatusDoesNotRequireRoot(t *testing.T) {
 
 func TestValidateLocalModelRequiresBaseURLWhenEnabled(t *testing.T) {
 	cfg := DefaultConfig()
+	cfg.SchemaVersion = SchemaVersionV1
+	cfg.LLMs = LLMRegistryConfig{}
 	cfg.Provider.OpenAI.APIKey = "test-key"
 	cfg.LocalModel.Enabled = true
 	cfg.LocalModel.BaseURL = ""
@@ -74,6 +79,8 @@ func TestValidateLocalModelRequiresBaseURLWhenEnabled(t *testing.T) {
 
 func TestValidateLocalModelRequiresEmbedModelWhenEnabled(t *testing.T) {
 	cfg := DefaultConfig()
+	cfg.SchemaVersion = SchemaVersionV1
+	cfg.LLMs = LLMRegistryConfig{}
 	cfg.Provider.OpenAI.APIKey = "test-key"
 	cfg.LocalModel.Enabled = true
 	cfg.LocalModel.EmbedModel = ""
@@ -85,6 +92,8 @@ func TestValidateLocalModelRequiresEmbedModelWhenEnabled(t *testing.T) {
 
 func TestValidateQueryRewriteRequiresLocalModelEnabled(t *testing.T) {
 	cfg := DefaultConfig()
+	cfg.SchemaVersion = SchemaVersionV1
+	cfg.LLMs = LLMRegistryConfig{}
 	cfg.Provider.OpenAI.APIKey = "test-key"
 	cfg.LocalModel.Enabled = false
 	cfg.LocalModel.QueryRewrite.Enabled = true
@@ -96,6 +105,8 @@ func TestValidateQueryRewriteRequiresLocalModelEnabled(t *testing.T) {
 
 func TestValidateQueryRewriteRequiresModel(t *testing.T) {
 	cfg := DefaultConfig()
+	cfg.SchemaVersion = SchemaVersionV1
+	cfg.LLMs = LLMRegistryConfig{}
 	cfg.Provider.OpenAI.APIKey = "test-key"
 	cfg.LocalModel.Enabled = true
 	cfg.LocalModel.QueryRewrite.Enabled = true
@@ -108,6 +119,8 @@ func TestValidateQueryRewriteRequiresModel(t *testing.T) {
 
 func TestValidateAcceptsEnabledLocalModel(t *testing.T) {
 	cfg := DefaultConfig()
+	cfg.SchemaVersion = SchemaVersionV1
+	cfg.LLMs = LLMRegistryConfig{}
 	cfg.Provider.OpenAI.APIKey = "test-key"
 	cfg.LocalModel.Enabled = true
 
@@ -118,6 +131,8 @@ func TestValidateAcceptsEnabledLocalModel(t *testing.T) {
 
 func TestValidateRejectsWritableMCPMode(t *testing.T) {
 	cfg := DefaultConfig()
+	cfg.SchemaVersion = SchemaVersionV1
+	cfg.LLMs = LLMRegistryConfig{}
 	cfg.Provider.OpenAI.APIKey = "test-key"
 	cfg.Agent.MCP.Enabled = true
 	cfg.Agent.MCP.ReadOnly = false
@@ -129,6 +144,8 @@ func TestValidateRejectsWritableMCPMode(t *testing.T) {
 
 func TestValidateRejectsInvalidMCPBounds(t *testing.T) {
 	cfg := DefaultConfig()
+	cfg.SchemaVersion = SchemaVersionV1
+	cfg.LLMs = LLMRegistryConfig{}
 	cfg.Provider.OpenAI.APIKey = "test-key"
 	cfg.Agent.MCP.Enabled = true
 	cfg.Agent.MCP.MaxOpenFiles = 0

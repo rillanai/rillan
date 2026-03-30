@@ -33,6 +33,7 @@ func newMCPCommand() *cobra.Command {
 func newMCPAddCommand(configPath *string) *cobra.Command {
 	var endpoint string
 	var transport string
+	var command []string
 	var authStrategy string
 	var readOnly bool
 
@@ -42,12 +43,13 @@ func newMCPAddCommand(configPath *string) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			entry := config.MCPServerConfig{
-				ID:           strings.TrimSpace(args[0]),
-				Endpoint:     strings.TrimSpace(endpoint),
-				Transport:    normalizeMCPTransport(transport),
-				AuthStrategy: normalizeMCPAuthStrategy(authStrategy),
-				ReadOnly:     readOnly,
-				SessionRef:   sessionRefForMCP(args[0]),
+				ID:            strings.TrimSpace(args[0]),
+				Endpoint:      strings.TrimSpace(endpoint),
+				Transport:     normalizeMCPTransport(transport),
+				Command:       normalizeCommand(command),
+				AuthStrategy:  normalizeMCPAuthStrategy(authStrategy),
+				ReadOnly:      readOnly,
+				CredentialRef: credentialRefForMCP(args[0]),
 			}
 			if err := validateMCPServerEntry(entry); err != nil {
 				return err
@@ -72,6 +74,7 @@ func newMCPAddCommand(configPath *string) *cobra.Command {
 
 	cmd.Flags().StringVar(&endpoint, "endpoint", "", "MCP endpoint URL")
 	cmd.Flags().StringVar(&transport, "transport", "http", "MCP transport type")
+	cmd.Flags().StringSliceVar(&command, "command", nil, "MCP command for stdio transport")
 	cmd.Flags().StringVar(&authStrategy, "auth-strategy", "none", "Auth strategy (none, api_key, browser_oidc, device_oidc)")
 	cmd.Flags().BoolVar(&readOnly, "read-only", true, "Whether this MCP endpoint is read-only")
 
@@ -127,6 +130,9 @@ func newMCPListCommand(configPath *string) *cobra.Command {
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "default: %s\n", cfg.MCPs.Default)
 			for _, server := range servers {
 				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "- id: %s\n  endpoint: %s\n  transport: %s\n  auth_strategy: %s\n  read_only: %t\n", server.ID, server.Endpoint, server.Transport, server.AuthStrategy, server.ReadOnly)
+				if len(server.Command) > 0 {
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  command: %s\n", strings.Join(server.Command, " "))
+				}
 			}
 			return nil
 		},
@@ -174,7 +180,7 @@ func newMCPLoginCommand(configPath *string) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := secretstore.Save(server.SessionRef, credential); err != nil {
+			if err := secretstore.Save(server.CredentialRef, credential); err != nil {
 				return err
 			}
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "authenticated mcp endpoint %s\n", server.ID)
@@ -199,7 +205,7 @@ func newMCPLogoutCommand(configPath *string) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := secretstore.Delete(server.SessionRef); err != nil {
+			if err := secretstore.Delete(server.CredentialRef); err != nil {
 				return err
 			}
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "cleared mcp auth for %s\n", server.ID)
@@ -208,7 +214,7 @@ func newMCPLogoutCommand(configPath *string) *cobra.Command {
 	}
 }
 
-func sessionRefForMCP(id string) string {
+func credentialRefForMCP(id string) string {
 	return fmt.Sprintf("keyring://rillan/mcp/%s", strings.TrimSpace(id))
 }
 
@@ -232,11 +238,15 @@ func validateMCPServerEntry(entry config.MCPServerConfig) error {
 	if entry.ID == "" {
 		return fmt.Errorf("mcp server name must not be empty")
 	}
-	if entry.Endpoint == "" {
-		return fmt.Errorf("mcp server endpoint must not be empty")
-	}
 	switch entry.Transport {
-	case "http", "stdio":
+	case "http":
+		if entry.Endpoint == "" {
+			return fmt.Errorf("mcp server endpoint must not be empty when transport is %q", entry.Transport)
+		}
+	case "stdio":
+		if len(entry.Command) == 0 {
+			return fmt.Errorf("mcp server command must not be empty when transport is %q", entry.Transport)
+		}
 	default:
 		return fmt.Errorf("unsupported mcp transport %q", entry.Transport)
 	}

@@ -20,11 +20,11 @@ func TestWriteExampleConfigWritesStarterConfig(t *testing.T) {
 	}
 
 	content := string(data)
-	if !strings.Contains(content, "type: \"openai\"") {
-		t.Fatalf("starter config missing provider type: %s", content)
+	if !strings.Contains(content, "backend: \"openai_compatible\"") {
+		t.Fatalf("starter config missing provider backend: %s", content)
 	}
-	if !strings.Contains(content, "enabled: false") {
-		t.Fatalf("starter config missing anthropic opt-in flag: %s", content)
+	if !strings.Contains(content, "transport: \"http\"") {
+		t.Fatalf("starter config missing provider transport: %s", content)
 	}
 	if !strings.Contains(content, "index:") {
 		t.Fatalf("starter config missing index block: %s", content)
@@ -37,7 +37,7 @@ func TestWriteExampleConfigWritesStarterConfig(t *testing.T) {
 }
 
 func TestWriteExampleProjectConfigWritesStarterProjectConfig(t *testing.T) {
-	path := filepath.Join(t.TempDir(), ".sidekick", "project.yaml")
+	path := filepath.Join(t.TempDir(), ".rillan", "project.yaml")
 
 	if err := WriteExampleProjectConfig(path, false); err != nil {
 		t.Fatalf("WriteExampleProjectConfig returned error: %v", err)

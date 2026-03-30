@@ -31,8 +31,10 @@ func newLLMCommand() *cobra.Command {
 }
 
 func newLLMAddCommand(configPath *string) *cobra.Command {
-	var providerType string
+	var backend string
+	var transport string
 	var endpoint string
+	var command []string
 	var authStrategy string
 	var defaultModel string
 	var capabilities []string
@@ -44,9 +46,11 @@ func newLLMAddCommand(configPath *string) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			entry := config.LLMProviderConfig{
 				ID:            strings.TrimSpace(args[0]),
-				Type:          normalizeProviderType(providerType),
+				Backend:       normalizeLLMBackend(backend, transport),
+				Transport:     normalizeLLMTransport(transport),
 				Endpoint:      strings.TrimSpace(endpoint),
-				AuthStrategy:  normalizeAuthStrategy(authStrategy, providerType),
+				Command:       normalizeCommand(command),
+				AuthStrategy:  normalizeAuthStrategy(authStrategy, transport),
 				DefaultModel:  strings.TrimSpace(defaultModel),
 				Capabilities:  normalizeCapabilities(capabilities),
 				CredentialRef: credentialRefForLLM(args[0]),
@@ -72,8 +76,10 @@ func newLLMAddCommand(configPath *string) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&providerType, "type", "", "Provider type (openai, openai_compatible, anthropic, kimi, local)")
+	cmd.Flags().StringVar(&backend, "backend", "", "Provider backend identity (for example openai_compatible)")
+	cmd.Flags().StringVar(&transport, "transport", config.LLMTransportHTTP, "Provider transport (http or stdio)")
 	cmd.Flags().StringVar(&endpoint, "endpoint", "", "Provider endpoint URL")
+	cmd.Flags().StringSliceVar(&command, "command", nil, "Provider command for stdio transport")
 	cmd.Flags().StringVar(&authStrategy, "auth-strategy", "", "Auth strategy (none, api_key, browser_oidc, device_oidc)")
 	cmd.Flags().StringVar(&defaultModel, "default-model", "", "Default model name for this provider")
 	cmd.Flags().StringSliceVar(&capabilities, "capability", nil, "Capability exposed by this provider (repeatable)")
@@ -129,7 +135,10 @@ func newLLMListCommand(configPath *string) *cobra.Command {
 
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "default: %s\n", cfg.LLMs.Default)
 			for _, provider := range providers {
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "- id: %s\n  type: %s\n  endpoint: %s\n  auth_strategy: %s\n  default_model: %s\n", provider.ID, provider.Type, provider.Endpoint, provider.AuthStrategy, provider.DefaultModel)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "- id: %s\n  backend: %s\n  transport: %s\n  endpoint: %s\n  auth_strategy: %s\n  default_model: %s\n", provider.ID, provider.Backend, provider.Transport, provider.Endpoint, provider.AuthStrategy, provider.DefaultModel)
+				if len(provider.Command) > 0 {
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  command: %s\n", strings.Join(provider.Command, " "))
+				}
 				if len(provider.Capabilities) > 0 {
 					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  capabilities: %s\n", strings.Join(provider.Capabilities, ","))
 				}
@@ -218,23 +227,52 @@ func credentialRefForLLM(id string) string {
 	return fmt.Sprintf("keyring://rillan/llm/%s", strings.TrimSpace(id))
 }
 
-func normalizeProviderType(providerType string) string {
-	return strings.ToLower(strings.TrimSpace(providerType))
+func normalizeLLMBackend(backend string, transport string) string {
+	backend = strings.ToLower(strings.TrimSpace(backend))
+	if backend != "" {
+		return backend
+	}
+	if normalizeLLMTransport(transport) == config.LLMTransportHTTP {
+		return config.LLMBackendOpenAICompatible
+	}
+	return ""
 }
 
-func normalizeAuthStrategy(authStrategy string, providerType string) string {
+func normalizeLLMTransport(transport string) string {
+	transport = strings.ToLower(strings.TrimSpace(transport))
+	if transport == "" {
+		return config.LLMTransportHTTP
+	}
+	return transport
+}
+
+func normalizeAuthStrategy(authStrategy string, transport string) string {
 	authStrategy = strings.ToLower(strings.TrimSpace(authStrategy))
 	if authStrategy != "" {
 		return authStrategy
 	}
-	switch normalizeProviderType(providerType) {
-	case config.ProviderOpenAI:
-		return config.AuthStrategyBrowserOIDC
-	case config.ProviderLocal, config.ProviderAnthropic, config.ProviderKimi, config.ProviderOpenAICompatible:
+	switch normalizeLLMTransport(transport) {
+	case config.LLMTransportSTDIO:
+		return config.AuthStrategyNone
+	case config.LLMTransportHTTP:
 		return config.AuthStrategyAPIKey
 	default:
 		return ""
 	}
+}
+
+func normalizeCommand(command []string) []string {
+	result := make([]string, 0, len(command))
+	for _, item := range command {
+		trimmed := strings.TrimSpace(item)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
 }
 
 func normalizeCapabilities(capabilities []string) []string {
@@ -262,16 +300,20 @@ func validateLLMProviderEntry(entry config.LLMProviderConfig) error {
 	if entry.ID == "" {
 		return fmt.Errorf("llm provider name must not be empty")
 	}
-	if entry.Endpoint == "" {
-		return fmt.Errorf("llm provider endpoint must not be empty")
+	if entry.Backend == "" {
+		return fmt.Errorf("llm provider backend must not be empty")
 	}
-	if entry.Type == "" {
-		return fmt.Errorf("llm provider type must not be empty")
-	}
-	switch entry.Type {
-	case config.ProviderOpenAI, config.ProviderOpenAICompatible, config.ProviderAnthropic, config.ProviderKimi, config.ProviderLocal:
+	switch entry.Transport {
+	case config.LLMTransportHTTP:
+		if entry.Endpoint == "" {
+			return fmt.Errorf("llm provider endpoint must not be empty when transport is %q", config.LLMTransportHTTP)
+		}
+	case config.LLMTransportSTDIO:
+		if len(entry.Command) == 0 {
+			return fmt.Errorf("llm provider command must not be empty when transport is %q", config.LLMTransportSTDIO)
+		}
 	default:
-		return fmt.Errorf("unsupported llm provider type %q", entry.Type)
+		return fmt.Errorf("unsupported llm provider transport %q", entry.Transport)
 	}
 	switch entry.AuthStrategy {
 	case config.AuthStrategyNone, config.AuthStrategyAPIKey, config.AuthStrategyBrowserOIDC, config.AuthStrategyDeviceOIDC:

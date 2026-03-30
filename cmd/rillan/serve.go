@@ -22,7 +22,7 @@ func newServeCommand() *cobra.Command {
 				return err
 			}
 
-			projectConfigPath := config.DefaultProjectConfigPath(cfg.Index.Root)
+			projectConfigPath := config.ResolveProjectConfigPath(cfg.Index.Root)
 			projectCfg, err := config.LoadProject(projectConfigPath)
 			if err != nil {
 				if errors.Is(err, os.ErrNotExist) {

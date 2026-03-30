@@ -297,7 +297,8 @@ func TestWritePersistsSchemaV2Config(t *testing.T) {
 	cfg.LLMs.Default = "work-gpt"
 	cfg.LLMs.Providers = append(cfg.LLMs.Providers, LLMProviderConfig{
 		ID:           "work-gpt",
-		Type:         ProviderOpenAI,
+		Backend:      LLMBackendOpenAICompatible,
+		Transport:    LLMTransportHTTP,
 		Endpoint:     "https://api.openai.com/v1",
 		AuthStrategy: AuthStrategyBrowserOIDC,
 	})
@@ -314,7 +315,7 @@ func TestWritePersistsSchemaV2Config(t *testing.T) {
 	if got, want := reloaded.LLMs.Default, "work-gpt"; got != want {
 		t.Fatalf("llms.default = %q, want %q", got, want)
 	}
-	if got, want := len(reloaded.LLMs.Providers), 1; got != want {
+	if got, want := len(reloaded.LLMs.Providers), 2; got != want {
 		t.Fatalf("len(llms.providers) = %d, want %d", got, want)
 	}
 }
@@ -345,7 +346,8 @@ llms:
   default: "work-gpt"
   providers:
     - id: "work-gpt"
-      type: "openai"
+      backend: "openai_compatible"
+      transport: "http"
       endpoint: "https://api.openai.com/v1"
       auth_strategy: "api_key"
       credential_ref: "keyring://rillan/llm/work-gpt"
@@ -357,17 +359,32 @@ runtime:
 	if err != nil {
 		t.Fatalf("Load returned error: %v", err)
 	}
-	if got, want := cfg.Provider.Type, ProviderOpenAI; got != want {
+	resolved, err := ResolveRuntimeProviderConfig(cfg, DefaultProjectConfig())
+	if err != nil {
+		t.Fatalf("ResolveRuntimeProviderConfig returned error: %v", err)
+	}
+	if got, want := resolved.Type, ProviderOpenAI; got != want {
 		t.Fatalf("provider.type = %q, want %q", got, want)
 	}
-	if got, want := cfg.Provider.OpenAI.APIKey, "secret-key"; got != want {
+	if got, want := resolved.OpenAI.APIKey, "secret-key"; got != want {
 		t.Fatalf("provider.openai.api_key = %q, want %q", got, want)
+	}
+}
+
+func TestResolveRuntimeProviderConfigHonorsProjectAllowlist(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.LLMs.Default = "openai"
+	project := DefaultProjectConfig()
+	project.Providers.LLMAllowed = []string{"local-only"}
+
+	if _, err := ResolveRuntimeProviderConfig(cfg, project); err == nil {
+		t.Fatal("expected project llm allowlist to reject the default provider")
 	}
 }
 
 func TestLoadProjectAppliesDefaultsAndResolvesRelativeSourcePaths(t *testing.T) {
 	projectDir := t.TempDir()
-	projectPath := filepath.Join(projectDir, ".sidekick", "project.yaml")
+	projectPath := filepath.Join(projectDir, ".rillan", "project.yaml")
 	if err := os.MkdirAll(filepath.Dir(projectPath), 0o755); err != nil {
 		t.Fatalf("mkdir project config dir: %v", err)
 	}
@@ -386,14 +403,14 @@ func TestLoadProjectAppliesDefaultsAndResolvesRelativeSourcePaths(t *testing.T) 
 	if got, want := cfg.Routing.Default, RoutePreferenceAuto; got != want {
 		t.Fatalf("routing.default = %q, want %q", got, want)
 	}
-	if got, want := cfg.Sources[0].Path, filepath.Join(projectDir, ".sidekick", "src"); got != want {
+	if got, want := cfg.Sources[0].Path, filepath.Join(projectDir, ".rillan", "src"); got != want {
 		t.Fatalf("sources[0].path = %q, want %q", got, want)
 	}
 }
 
 func TestLoadProjectInitializesProviderAndSkillSelections(t *testing.T) {
 	projectDir := t.TempDir()
-	projectPath := filepath.Join(projectDir, ".sidekick", "project.yaml")
+	projectPath := filepath.Join(projectDir, ".rillan", "project.yaml")
 	if err := os.MkdirAll(filepath.Dir(projectPath), 0o755); err != nil {
 		t.Fatalf("mkdir project config dir: %v", err)
 	}
@@ -434,8 +451,22 @@ func TestLoadProjectDoesNotUseEnvironmentOverrides(t *testing.T) {
 
 func TestDefaultProjectConfigPathUsesRootWhenProvided(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "repo")
-	if got, want := DefaultProjectConfigPath(root), filepath.Join(root, ".sidekick", "project.yaml"); got != want {
+	if got, want := DefaultProjectConfigPath(root), filepath.Join(root, ".rillan", "project.yaml"); got != want {
 		t.Fatalf("DefaultProjectConfigPath() = %q, want %q", got, want)
+	}
+}
+
+func TestResolveProjectConfigPathFallsBackToLegacySidekickLocation(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "repo")
+	legacy := filepath.Join(root, ".sidekick", "project.yaml")
+	if err := os.MkdirAll(filepath.Dir(legacy), 0o755); err != nil {
+		t.Fatalf("mkdir legacy config dir: %v", err)
+	}
+	if err := os.WriteFile(legacy, []byte("name: \"demo\"\n"), 0o644); err != nil {
+		t.Fatalf("write legacy project config: %v", err)
+	}
+	if got, want := ResolveProjectConfigPath(root), legacy; got != want {
+		t.Fatalf("ResolveProjectConfigPath() = %q, want %q", got, want)
 	}
 }
 

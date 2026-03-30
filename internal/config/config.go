@@ -6,6 +6,10 @@ const (
 	SchemaVersionV1 = 1
 	SchemaVersionV2 = 2
 
+	LLMBackendOpenAICompatible = "openai_compatible"
+	LLMTransportHTTP           = "http"
+	LLMTransportSTDIO          = "stdio"
+
 	ProviderOpenAI           = "openai"
 	ProviderOpenAICompatible = "openai_compatible"
 	ProviderAnthropic        = "anthropic"
@@ -76,8 +80,10 @@ type LLMRegistryConfig struct {
 // plaintext config.
 type LLMProviderConfig struct {
 	ID            string   `yaml:"id,omitempty"`
-	Type          string   `yaml:"type,omitempty"`
+	Backend       string   `yaml:"backend,omitempty"`
+	Transport     string   `yaml:"transport,omitempty"`
 	Endpoint      string   `yaml:"endpoint,omitempty"`
+	Command       []string `yaml:"command,omitempty"`
 	AuthStrategy  string   `yaml:"auth_strategy,omitempty"`
 	DefaultModel  string   `yaml:"default_model,omitempty"`
 	Capabilities  []string `yaml:"capabilities,omitempty"`
@@ -92,12 +98,27 @@ type MCPRegistryConfig struct {
 
 // MCPServerConfig describes one named MCP endpoint entry in schema v2.
 type MCPServerConfig struct {
-	ID           string `yaml:"id,omitempty"`
-	Endpoint     string `yaml:"endpoint,omitempty"`
-	Transport    string `yaml:"transport,omitempty"`
-	AuthStrategy string `yaml:"auth_strategy,omitempty"`
-	ReadOnly     bool   `yaml:"read_only,omitempty"`
-	SessionRef   string `yaml:"session_ref,omitempty"`
+	ID            string   `yaml:"id,omitempty"`
+	Endpoint      string   `yaml:"endpoint,omitempty"`
+	Transport     string   `yaml:"transport,omitempty"`
+	Command       []string `yaml:"command,omitempty"`
+	AuthStrategy  string   `yaml:"auth_strategy,omitempty"`
+	ReadOnly      bool     `yaml:"read_only,omitempty"`
+	CredentialRef string   `yaml:"credential_ref,omitempty"`
+}
+
+// ResolvedLLMProvider is the selected registry entry after project overrides
+// and allowlists have been applied.
+type ResolvedLLMProvider struct {
+	ID            string
+	Backend       string
+	Transport     string
+	Endpoint      string
+	Command       []string
+	AuthStrategy  string
+	DefaultModel  string
+	Capabilities  []string
+	CredentialRef string
 }
 
 type SystemConfig struct {
@@ -132,7 +153,7 @@ type SystemPolicyRules struct {
 	BlockRemoteOnPCIArtifacts bool
 }
 
-// ProjectConfig is the repo-local `.sidekick/project.yaml` configuration.
+// ProjectConfig is the repo-local `.rillan/project.yaml` configuration.
 type ProjectConfig struct {
 	Name           string                         `yaml:"name"`
 	Classification string                         `yaml:"classification"`
@@ -296,7 +317,17 @@ func DefaultConfig() Config {
 			},
 		},
 		LLMs: LLMRegistryConfig{
-			Providers: []LLMProviderConfig{},
+			Default: "openai",
+			Providers: []LLMProviderConfig{{
+				ID:            "openai",
+				Backend:       LLMBackendOpenAICompatible,
+				Transport:     LLMTransportHTTP,
+				Endpoint:      "https://api.openai.com/v1",
+				AuthStrategy:  AuthStrategyBrowserOIDC,
+				DefaultModel:  "gpt-5",
+				Capabilities:  []string{"chat", "reasoning", "tool_calling"},
+				CredentialRef: "keyring://rillan/llm/openai",
+			}},
 		},
 		MCPs: MCPRegistryConfig{
 			Servers: []MCPServerConfig{},

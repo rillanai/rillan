@@ -110,7 +110,6 @@ func LoadWithMode(path string, mode ValidationMode) (Config, error) {
 
 	applyEnvOverrides(&cfg)
 	applyDerivedDefaults(&cfg, path)
-	applySelectedLLMProvider(&cfg)
 
 	if err := ValidateForMode(cfg, mode); err != nil {
 		return Config{}, err
@@ -141,43 +140,75 @@ func Write(path string, cfg Config) error {
 	return nil
 }
 
-func applySelectedLLMProvider(cfg *Config) {
-	if cfg.SchemaVersion < SchemaVersionV2 || cfg.LLMs.Default == "" {
-		return
+func ResolveActiveLLMProvider(cfg Config, project ProjectConfig) (ResolvedLLMProvider, error) {
+	selectedID := strings.TrimSpace(cfg.LLMs.Default)
+	if override := strings.TrimSpace(project.Providers.LLMDefault); override != "" {
+		selectedID = override
 	}
-	var selected *LLMProviderConfig
-	for i := range cfg.LLMs.Providers {
-		if cfg.LLMs.Providers[i].ID == cfg.LLMs.Default {
-			selected = &cfg.LLMs.Providers[i]
-			break
+	if selectedID == "" {
+		return ResolvedLLMProvider{}, fmt.Errorf("llms.default must not be empty")
+	}
+	if len(project.Providers.LLMAllowed) > 0 {
+		allowed := false
+		for _, candidate := range project.Providers.LLMAllowed {
+			if strings.TrimSpace(candidate) == selectedID {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			return ResolvedLLMProvider{}, fmt.Errorf("llm provider %q is not allowed for this project", selectedID)
 		}
 	}
-	if selected == nil {
-		return
+	for _, provider := range cfg.LLMs.Providers {
+		if strings.TrimSpace(provider.ID) != selectedID {
+			continue
+		}
+		return ResolvedLLMProvider{
+			ID:            provider.ID,
+			Backend:       strings.TrimSpace(provider.Backend),
+			Transport:     strings.TrimSpace(provider.Transport),
+			Endpoint:      strings.TrimSpace(provider.Endpoint),
+			Command:       append([]string(nil), provider.Command...),
+			AuthStrategy:  strings.TrimSpace(provider.AuthStrategy),
+			DefaultModel:  strings.TrimSpace(provider.DefaultModel),
+			Capabilities:  append([]string(nil), provider.Capabilities...),
+			CredentialRef: strings.TrimSpace(provider.CredentialRef),
+		}, nil
 	}
-	binding := secretstore.Binding{
-		Endpoint:     strings.TrimSpace(selected.Endpoint),
-		AuthStrategy: strings.TrimSpace(selected.AuthStrategy),
+	return ResolvedLLMProvider{}, fmt.Errorf("llm provider %q not found", selectedID)
+}
+
+func ResolveRuntimeProviderConfig(cfg Config, project ProjectConfig) (ProviderConfig, error) {
+	if cfg.SchemaVersion < SchemaVersionV2 || len(cfg.LLMs.Providers) == 0 {
+		return cfg.Provider, nil
 	}
-	secret, err := secretstore.ResolveBearer(strings.TrimSpace(selected.CredentialRef), binding)
+	selected, err := ResolveActiveLLMProvider(cfg, project)
 	if err != nil {
-		secret = ""
+		return ProviderConfig{}, err
 	}
-	baseURL := strings.TrimSpace(selected.Endpoint)
-	if baseURL == "" {
-		return
+	if selected.Transport != LLMTransportHTTP {
+		return ProviderConfig{}, fmt.Errorf("llm provider %q uses unsupported transport %q in the current runtime", selected.ID, selected.Transport)
 	}
-	switch strings.ToLower(strings.TrimSpace(selected.Type)) {
-	case ProviderAnthropic:
-		cfg.Provider.Type = ProviderAnthropic
-		cfg.Provider.Anthropic.Enabled = true
-		cfg.Provider.Anthropic.BaseURL = baseURL
-		cfg.Provider.Anthropic.APIKey = secret
-	case ProviderOpenAI, ProviderOpenAICompatible, ProviderKimi, ProviderLocal:
-		cfg.Provider.Type = ProviderOpenAI
-		cfg.Provider.OpenAI.BaseURL = baseURL
-		cfg.Provider.OpenAI.APIKey = secret
+	if selected.Backend != LLMBackendOpenAICompatible {
+		return ProviderConfig{}, fmt.Errorf("llm provider %q uses unsupported backend %q in the current runtime", selected.ID, selected.Backend)
 	}
+	secret := ""
+	if selected.AuthStrategy != AuthStrategyNone && selected.CredentialRef != "" {
+		binding := secretstore.Binding{Endpoint: selected.Endpoint, AuthStrategy: selected.AuthStrategy}
+		resolved, err := secretstore.ResolveBearer(selected.CredentialRef, binding)
+		if err != nil {
+			return ProviderConfig{}, err
+		}
+		secret = resolved
+	}
+	providerCfg := cfg.Provider
+	providerCfg.Type = ProviderOpenAI
+	providerCfg.OpenAI.BaseURL = selected.Endpoint
+	providerCfg.OpenAI.APIKey = secret
+	providerCfg.Anthropic.Enabled = false
+	providerCfg.Anthropic.APIKey = ""
+	return providerCfg, nil
 }
 
 func applyDerivedDefaults(cfg *Config, configPath string) {
@@ -245,7 +276,10 @@ func applyDerivedDefaults(cfg *Config, configPath string) {
 		cfg.Index.Root = resolveIndexRoot(configPath, cfg.Index.Root)
 	}
 	if cfg.LLMs.Providers == nil {
-		cfg.LLMs.Providers = []LLMProviderConfig{}
+		cfg.LLMs.Providers = slices.Clone(DefaultConfig().LLMs.Providers)
+	}
+	if cfg.LLMs.Default == "" && len(cfg.LLMs.Providers) > 0 {
+		cfg.LLMs.Default = cfg.LLMs.Providers[0].ID
 	}
 	if cfg.MCPs.Servers == nil {
 		cfg.MCPs.Servers = []MCPServerConfig{}
@@ -397,7 +431,7 @@ func DefaultProjectConfigPath(root string) string {
 	if base == "" {
 		cwd, err := os.Getwd()
 		if err != nil {
-			return filepath.Join(".sidekick", "project.yaml")
+			return filepath.Join(".rillan", "project.yaml")
 		}
 		base = cwd
 	}
@@ -406,7 +440,34 @@ func DefaultProjectConfigPath(root string) string {
 		base = absBase
 	}
 
+	return filepath.Join(base, ".rillan", "project.yaml")
+}
+
+func LegacyProjectConfigPath(root string) string {
+	base := strings.TrimSpace(root)
+	if base == "" {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return filepath.Join(".sidekick", "project.yaml")
+		}
+		base = cwd
+	}
+	if absBase, err := filepath.Abs(base); err == nil {
+		base = absBase
+	}
 	return filepath.Join(base, ".sidekick", "project.yaml")
+}
+
+func ResolveProjectConfigPath(root string) string {
+	preferred := DefaultProjectConfigPath(root)
+	if _, err := os.Stat(preferred); err == nil {
+		return preferred
+	}
+	legacy := LegacyProjectConfigPath(root)
+	if _, err := os.Stat(legacy); err == nil {
+		return legacy
+	}
+	return preferred
 }
 
 func DefaultSystemConfigPath() string {

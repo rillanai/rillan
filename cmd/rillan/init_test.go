@@ -25,7 +25,7 @@ func TestInitCommandWritesRuntimeAndProjectConfig(t *testing.T) {
 	if _, err := os.Stat(runtimePath); err != nil {
 		t.Fatalf("runtime config missing: %v", err)
 	}
-	projectPath := filepath.Join(".sidekick", "project.yaml")
+	projectPath := filepath.Join(".rillan", "project.yaml")
 	if _, err := os.Stat(projectPath); err != nil {
 		t.Fatalf("project config missing: %v", err)
 	}
@@ -40,7 +40,7 @@ func TestInitCommandHonorsProjectOutputFlag(t *testing.T) {
 	t.Chdir(t.TempDir())
 
 	runtimePath := filepath.Join(t.TempDir(), "rillan.yaml")
-	projectPath := filepath.Join(t.TempDir(), "nested", ".sidekick", "project.yaml")
+	projectPath := filepath.Join(t.TempDir(), "nested", ".rillan", "project.yaml")
 	cmd := newInitCommand()
 	cmd.SetArgs([]string{"--output", runtimePath, "--project-output", projectPath})
 

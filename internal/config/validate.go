@@ -144,6 +144,32 @@ func ValidateForMode(cfg Config, mode ValidationMode) error {
 
 	switch mode {
 	case ValidationModeServe:
+		if cfg.SchemaVersion >= SchemaVersionV2 && len(cfg.LLMs.Providers) > 0 {
+			if strings.TrimSpace(cfg.LLMs.Default) == "" {
+				return fmt.Errorf("llms.default must not be empty")
+			}
+			active, err := ResolveActiveLLMProvider(cfg, DefaultProjectConfig())
+			if err != nil {
+				return err
+			}
+			if strings.TrimSpace(active.Backend) == "" {
+				return fmt.Errorf("llm provider %q backend must not be empty", active.ID)
+			}
+			switch active.Transport {
+			case LLMTransportHTTP:
+				if strings.TrimSpace(active.Endpoint) == "" {
+					return fmt.Errorf("llm provider %q endpoint must not be empty when transport is %q", active.ID, LLMTransportHTTP)
+				}
+			case LLMTransportSTDIO:
+				if len(active.Command) == 0 {
+					return fmt.Errorf("llm provider %q command must not be empty when transport is %q", active.ID, LLMTransportSTDIO)
+				}
+			default:
+				return fmt.Errorf("llm provider %q transport must be %q or %q", active.ID, LLMTransportHTTP, LLMTransportSTDIO)
+			}
+			break
+		}
+
 		switch normalizeString(cfg.Provider.Type) {
 		case ProviderOpenAI:
 			if cfg.Provider.OpenAI.APIKey == "" {
