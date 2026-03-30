@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/sidekickos/rillan/internal/classify"
 	"github.com/sidekickos/rillan/internal/config"
@@ -73,8 +74,12 @@ func buildRuntimeSnapshot(ctx context.Context, cfg config.Config, project config
 	if err != nil {
 		return httpapi.RuntimeSnapshot{}, err
 	}
+	runtimeConfig, err := augmentRuntimeConfigWithModuleLLMAdapters(cfg, moduleCatalog)
+	if err != nil {
+		return httpapi.RuntimeSnapshot{}, err
+	}
 
-	providerHostCfg, err := config.ResolveRuntimeProviderHostConfig(cfg, project)
+	providerHostCfg, err := config.ResolveRuntimeProviderHostConfig(runtimeConfig, project)
 	if err != nil {
 		return httpapi.RuntimeSnapshot{}, err
 	}
@@ -90,7 +95,7 @@ func buildRuntimeSnapshot(ctx context.Context, cfg config.Config, project config
 		return httpapi.RuntimeSnapshot{}, err
 	}
 
-	routeCatalog := routing.BuildCatalog(cfg, project)
+	routeCatalog := routing.BuildCatalog(runtimeConfig, project)
 	snapshot := httpapi.RuntimeSnapshot{
 		Provider:      provider,
 		ProviderHost:  providerHost,
@@ -100,7 +105,7 @@ func buildRuntimeSnapshot(ctx context.Context, cfg config.Config, project config
 		RouteCatalog:  routeCatalog,
 		RouteStatus: routing.BuildStatusCatalog(ctx, routing.StatusInput{
 			Catalog:    routeCatalog,
-			Config:     cfg,
+			Config:     runtimeConfig,
 			HTTPClient: httpClient,
 		}),
 		ReadinessInfo: httpapi.ReadinessInfo{
@@ -140,4 +145,39 @@ func buildRuntimeSnapshot(ctx context.Context, cfg config.Config, project config
 
 	snapshot.Pipeline = retrieval.NewPipeline(cfg.Retrieval, index.DefaultDBPath(), pipelineOpts...)
 	return snapshot, nil
+}
+
+func augmentRuntimeConfigWithModuleLLMAdapters(cfg config.Config, moduleCatalog modules.Catalog) (config.Config, error) {
+	if cfg.SchemaVersion < config.SchemaVersionV2 || len(moduleCatalog.Modules) == 0 {
+		return cfg, nil
+	}
+
+	augmented := cfg
+	augmented.LLMs.Default = cfg.LLMs.Default
+	augmented.LLMs.Providers = append([]config.LLMProviderConfig(nil), cfg.LLMs.Providers...)
+
+	seenProviders := make(map[string]string, len(augmented.LLMs.Providers))
+	for _, provider := range augmented.LLMs.Providers {
+		providerID := strings.TrimSpace(provider.ID)
+		if providerID == "" {
+			continue
+		}
+		seenProviders[providerID] = "runtime config"
+	}
+
+	for _, module := range moduleCatalog.Modules {
+		for _, adapter := range module.LLMAdapters {
+			adapterID := strings.TrimSpace(adapter.ID)
+			if adapterID == "" {
+				continue
+			}
+			if source, exists := seenProviders[adapterID]; exists {
+				return config.Config{}, errors.New("module llm adapter id collision: " + adapterID + " already declared in " + source)
+			}
+			seenProviders[adapterID] = "module " + module.ID
+			augmented.LLMs.Providers = append(augmented.LLMs.Providers, adapter)
+		}
+	}
+
+	return augmented, nil
 }

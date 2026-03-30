@@ -145,6 +145,8 @@ type RuntimeProviderAdapterConfig struct {
 	ID         string
 	Preset     string
 	Type       string
+	Transport  string
+	Command    []string
 	OpenAI     OpenAIConfig
 	Anthropic  AnthropicConfig
 	LocalModel LocalModelProvider

@@ -54,7 +54,7 @@ func buildCandidates(cfg config.Config) []Candidate {
 			DefaultModel: strings.TrimSpace(provider.DefaultModel),
 			ModelPins:    providerModelPins(provider),
 			Capabilities: capabilities,
-			Location:     locationForFamily(family),
+			Location:     locationForProvider(family, provider.Transport),
 		})
 	}
 	return candidates
@@ -69,7 +69,7 @@ func legacyCandidate(cfg config.Config) Candidate {
 		DefaultModel: "",
 		ModelPins:    nil,
 		Capabilities: []string{"chat"},
-		Location:     locationForFamily(backend),
+		Location:     locationForProvider(backend, config.LLMTransportHTTP),
 	}
 }
 
@@ -106,7 +106,10 @@ func providerModelPins(provider config.LLMProviderConfig) []string {
 	return nil
 }
 
-func locationForFamily(family string) Location {
+func locationForProvider(family string, transport string) Location {
+	if normalizeString(transport) == config.LLMTransportSTDIO {
+		return LocationLocal
+	}
 	if normalizeString(family) == config.ProviderOllama {
 		return LocationLocal
 	}

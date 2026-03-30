@@ -4,6 +4,9 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/sidekickos/rillan/internal/config"
@@ -171,6 +174,74 @@ func TestBuildStatusCatalogReturnsStableProviderIDOrdering(t *testing.T) {
 			t.Fatalf("candidates[%d] id = %q, want %q", i, got[i], want[i])
 		}
 	}
+}
+
+func TestBuildStatusCatalogMarksHealthyStdioProviderAvailable(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell fixture is unix-specific")
+	}
+
+	script := writeExecutableStatusScript(t)
+	cfg := config.Config{
+		SchemaVersion: config.SchemaVersionV2,
+		LLMs: config.LLMRegistryConfig{
+			Providers: []config.LLMProviderConfig{{
+				ID:           "stdio-demo",
+				Backend:      config.ProviderOpenAICompatible,
+				Transport:    config.LLMTransportSTDIO,
+				Command:      []string{script},
+				AuthStrategy: config.AuthStrategyNone,
+			}},
+		},
+	}
+
+	statuses := BuildStatusCatalog(context.Background(), StatusInput{
+		Catalog: BuildCatalog(cfg, config.DefaultProjectConfig()),
+		Config:  cfg,
+	})
+
+	status := statuses.ByID["stdio-demo"]
+	if !status.Configured || !status.AuthValid || !status.Ready || !status.Available {
+		t.Fatalf("expected stdio provider to be fully available, got %#v", status)
+	}
+}
+
+func TestBuildStatusCatalogMarksMissingStdioProviderUnavailable(t *testing.T) {
+	cfg := config.Config{
+		SchemaVersion: config.SchemaVersionV2,
+		LLMs: config.LLMRegistryConfig{
+			Providers: []config.LLMProviderConfig{{
+				ID:           "stdio-demo",
+				Backend:      config.ProviderOpenAICompatible,
+				Transport:    config.LLMTransportSTDIO,
+				Command:      []string{"definitely-missing-rillan-stdio-provider"},
+				AuthStrategy: config.AuthStrategyNone,
+			}},
+		},
+	}
+
+	statuses := BuildStatusCatalog(context.Background(), StatusInput{
+		Catalog: BuildCatalog(cfg, config.DefaultProjectConfig()),
+		Config:  cfg,
+	})
+
+	status := statuses.ByID["stdio-demo"]
+	if !status.Configured || !status.AuthValid {
+		t.Fatalf("expected stdio provider to be configured with valid auth, got %#v", status)
+	}
+	if status.Ready || status.Available {
+		t.Fatalf("expected stdio provider to be unavailable, got %#v", status)
+	}
+	requireUnavailableReason(t, status, UnavailableReasonNotReady)
+}
+
+func writeExecutableStatusScript(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "provider.sh")
+	if err := os.WriteFile(path, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatalf("WriteFile returned error: %v", err)
+	}
+	return path
 }
 
 func requireUnavailableReason(t *testing.T, status CandidateStatus, want UnavailableReasonCode) {

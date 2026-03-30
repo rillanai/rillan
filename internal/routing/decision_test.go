@@ -207,6 +207,34 @@ func TestDecideRequestedModelRespectsLocalOnlyWithinMatchedSubset(t *testing.T) 
 	}
 }
 
+func TestDecidePolicyLocalOnlyAllowsStdioCandidateClassifiedAsLocal(t *testing.T) {
+	t.Parallel()
+
+	catalog := BuildCatalog(config.Config{
+		SchemaVersion: config.SchemaVersionV2,
+		LLMs: config.LLMRegistryConfig{
+			Providers: []config.LLMProviderConfig{
+				{ID: "remote-http", Backend: config.ProviderOpenAICompatible, Transport: config.LLMTransportHTTP, DefaultModel: "gpt-5", Capabilities: []string{"chat"}},
+				{ID: "local-stdio", Backend: config.ProviderOpenAICompatible, Transport: config.LLMTransportSTDIO, Command: []string{"demo-provider"}, DefaultModel: "demo-model", Capabilities: []string{"chat"}},
+			},
+		},
+	}, config.DefaultProjectConfig())
+
+	decision := Decide(DecisionInput{
+		Action:        policy.ActionTypeGeneralQA,
+		Project:       config.ProjectConfig{Routing: config.ProjectRoutingConfig{Default: config.RoutePreferencePreferCloud}},
+		PolicyVerdict: policy.VerdictLocalOnly,
+		Candidates:    catalog.Candidates,
+	})
+
+	if decision.Selected == nil {
+		t.Fatal("expected selected candidate")
+	}
+	if got, want := decision.Selected.ID, "local-stdio"; got != want {
+		t.Fatalf("selected id = %q, want %q", got, want)
+	}
+}
+
 func TestDecideRequiredCapabilitiesExcludeCandidatesMissingTools(t *testing.T) {
 	t.Parallel()
 

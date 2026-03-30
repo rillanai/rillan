@@ -78,14 +78,6 @@ func buildCandidateStatus(ctx context.Context, cfg config.Config, candidate Cand
 	}
 	status.Configured = true
 
-	if normalizeString(providerCfg.Transport) != config.LLMTransportHTTP {
-		status.UnavailableReasons = append(status.UnavailableReasons, UnavailableReason{
-			Code:   UnavailableReasonUnsupportedRuntime,
-			Detail: fmt.Sprintf("llm provider %q uses unsupported transport %q in the current runtime", providerCfg.ID, providerCfg.Transport),
-		})
-		return finalizeCandidateStatus(status)
-	}
-
 	if requiresCredential(providerCfg) && strings.TrimSpace(providerCfg.CredentialRef) == "" {
 		status.UnavailableReasons = append(status.UnavailableReasons, UnavailableReason{
 			Code:   UnavailableReasonMissingCredentials,

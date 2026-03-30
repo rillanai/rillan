@@ -627,7 +627,7 @@ runtime:
 	if got, want := resolved.Default, "remote-gpt"; got != want {
 		t.Fatalf("default provider = %q, want %q", got, want)
 	}
-	if got, want := len(resolved.Providers), 2; got != want {
+	if got, want := len(resolved.Providers), 3; got != want {
 		t.Fatalf("provider count = %d, want %d", got, want)
 	}
 	if got, want := resolved.Providers[0].ID, "remote-gpt"; got != want {
@@ -635,6 +635,35 @@ runtime:
 	}
 	if got, want := resolved.Providers[1].ID, "local-qwen"; got != want {
 		t.Fatalf("providers[1].id = %q, want %q", got, want)
+	}
+	if got, want := resolved.Providers[2].ID, "stdio-future"; got != want {
+		t.Fatalf("providers[2].id = %q, want %q", got, want)
+	}
+	if got, want := resolved.Providers[2].Transport, LLMTransportSTDIO; got != want {
+		t.Fatalf("providers[2].transport = %q, want %q", got, want)
+	}
+	if got, want := resolved.Providers[2].Command[0], "future-provider"; got != want {
+		t.Fatalf("providers[2].command[0] = %q, want %q", got, want)
+	}
+}
+
+func TestResolveRuntimeProviderAdapterConfigSupportsStdioTransport(t *testing.T) {
+	cfg := DefaultConfig()
+	resolved, err := ResolveRuntimeProviderAdapterConfig(cfg, ResolvedLLMProvider{
+		ID:           "stdio-demo",
+		Backend:      LLMBackendOpenAICompatible,
+		Transport:    LLMTransportSTDIO,
+		Command:      []string{"demo-provider"},
+		AuthStrategy: AuthStrategyNone,
+	})
+	if err != nil {
+		t.Fatalf("ResolveRuntimeProviderAdapterConfig returned error: %v", err)
+	}
+	if got, want := resolved.Transport, LLMTransportSTDIO; got != want {
+		t.Fatalf("transport = %q, want %q", got, want)
+	}
+	if got, want := resolved.Command[0], "demo-provider"; got != want {
+		t.Fatalf("command[0] = %q, want %q", got, want)
 	}
 }
 

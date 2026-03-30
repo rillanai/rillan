@@ -256,9 +256,6 @@ func ResolveRuntimeProviderHostConfig(cfg Config, project ProjectConfig) (Runtim
 	if err != nil {
 		return RuntimeProviderHostConfig{}, err
 	}
-	if selected.Transport != LLMTransportHTTP {
-		return RuntimeProviderHostConfig{}, fmt.Errorf("llm provider %q uses unsupported transport %q in the current runtime", selected.ID, selected.Transport)
-	}
 
 	allowed := makeAllowlist(project.Providers.LLMAllowed)
 	providers := make([]RuntimeProviderAdapterConfig, 0, len(cfg.LLMs.Providers))
@@ -277,12 +274,6 @@ func ResolveRuntimeProviderHostConfig(cfg Config, project ProjectConfig) (Runtim
 		if err != nil {
 			if providerID == selected.ID {
 				return RuntimeProviderHostConfig{}, err
-			}
-			continue
-		}
-		if resolved.Transport != LLMTransportHTTP {
-			if providerID == selected.ID {
-				return RuntimeProviderHostConfig{}, fmt.Errorf("llm provider %q uses unsupported transport %q in the current runtime", resolved.ID, resolved.Transport)
 			}
 			continue
 		}
@@ -306,9 +297,21 @@ func ResolveRuntimeProviderHostConfig(cfg Config, project ProjectConfig) (Runtim
 
 func ResolveRuntimeProviderAdapterConfig(cfg Config, selected ResolvedLLMProvider) (RuntimeProviderAdapterConfig, error) {
 	providerCfg := RuntimeProviderAdapterConfig{
-		ID:     selected.ID,
-		Preset: selected.Preset,
-		Type:   selected.Backend,
+		ID:        selected.ID,
+		Preset:    selected.Preset,
+		Type:      selected.Backend,
+		Transport: selected.Transport,
+		Command:   append([]string(nil), selected.Command...),
+	}
+
+	if selected.Transport == LLMTransportSTDIO {
+		if len(selected.Command) == 0 {
+			return RuntimeProviderAdapterConfig{}, fmt.Errorf("llm provider %q command must not be empty when transport is %q", selected.ID, LLMTransportSTDIO)
+		}
+		if strategy := normalizeString(selected.AuthStrategy); strategy != "" && strategy != AuthStrategyNone {
+			return RuntimeProviderAdapterConfig{}, fmt.Errorf("llm provider %q uses unsupported auth strategy %q for stdio transport", selected.ID, selected.AuthStrategy)
+		}
+		return providerCfg, nil
 	}
 
 	switch selected.Backend {

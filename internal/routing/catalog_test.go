@@ -6,7 +6,7 @@ import (
 	"github.com/sidekickos/rillan/internal/config"
 )
 
-func TestBuildCatalogDerivesExecutionLocationFromFamily(t *testing.T) {
+func TestBuildCatalogDerivesExecutionLocationFromFamilyAndTransport(t *testing.T) {
 	t.Parallel()
 
 	catalog := BuildCatalog(config.Config{
@@ -15,11 +15,12 @@ func TestBuildCatalogDerivesExecutionLocationFromFamily(t *testing.T) {
 			Providers: []config.LLMProviderConfig{
 				{ID: "local-chat", Backend: config.ProviderOllama, Transport: config.LLMTransportHTTP, DefaultModel: "qwen3:8b"},
 				{ID: "openai", Backend: config.ProviderOpenAICompatible, Transport: config.LLMTransportHTTP, DefaultModel: "gpt-5", Capabilities: []string{"chat"}},
+				{ID: "stdio-local", Backend: config.ProviderOpenAICompatible, Transport: config.LLMTransportSTDIO, Command: []string{"demo-provider"}, DefaultModel: "demo-model"},
 			},
 		},
 	}, config.DefaultProjectConfig())
 
-	if got, want := len(catalog.Candidates), 2; got != want {
+	if got, want := len(catalog.Candidates), 3; got != want {
 		t.Fatalf("candidate count = %d, want %d", got, want)
 	}
 	if got, want := catalog.Candidates[0].ID, "local-chat"; got != want {
@@ -30,6 +31,9 @@ func TestBuildCatalogDerivesExecutionLocationFromFamily(t *testing.T) {
 	}
 	if got, want := catalog.Candidates[1].Location, LocationRemote; got != want {
 		t.Fatalf("openai location = %q, want %q", got, want)
+	}
+	if got, want := catalog.Candidates[2].Location, LocationLocal; got != want {
+		t.Fatalf("stdio-local location = %q, want %q", got, want)
 	}
 }
 
