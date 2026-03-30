@@ -173,3 +173,30 @@ func TestMCPLoginAndLogoutStoreCredentialsSecurely(t *testing.T) {
 		t.Fatal("expected mcp credential ref to be cleared")
 	}
 }
+
+func TestMCPLoginNotifiesDaemonRefresh(t *testing.T) {
+	store := map[string]string{}
+	secretstoreTestHooks(t, store)
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	cfg := config.DefaultConfig()
+	cfg.MCPs.Servers = []config.MCPServerConfig{{ID: "ide-local", Endpoint: "http://127.0.0.1:8765", Transport: "http", AuthStrategy: config.AuthStrategyAPIKey, ReadOnly: true, CredentialRef: credentialRefForMCP("ide-local")}}
+	if err := config.Write(configPath, cfg); err != nil {
+		t.Fatalf("Write returned error: %v", err)
+	}
+
+	called := 0
+	daemonRefreshNotifier = func(config.Config) error {
+		called++
+		return nil
+	}
+	t.Cleanup(func() { daemonRefreshNotifier = notifyDaemonRuntimeRefresh })
+
+	login := newMCPCommand()
+	login.SetArgs([]string{"--config", configPath, "login", "ide-local", "--api-key", "secret-key"})
+	if err := login.Execute(); err != nil {
+		t.Fatalf("login Execute returned error: %v", err)
+	}
+	if got, want := called, 1; got != want {
+		t.Fatalf("daemon refresh calls = %d, want %d", got, want)
+	}
+}

@@ -68,7 +68,10 @@ func newMCPAddCommand(configPath *string) *cobra.Command {
 			if cfg.MCPs.Default == "" {
 				cfg.MCPs.Default = entry.ID
 			}
-			return config.Write(*configPath, cfg)
+			if err := config.Write(*configPath, cfg); err != nil {
+				return err
+			}
+			return refreshDaemonAfterMutation(cfg, "updated mcp config")
 		},
 	}
 
@@ -109,7 +112,10 @@ func newMCPRemoveCommand(configPath *string) *cobra.Command {
 			if cfg.MCPs.Default == id {
 				cfg.MCPs.Default = ""
 			}
-			return config.Write(*configPath, cfg)
+			if err := config.Write(*configPath, cfg); err != nil {
+				return err
+			}
+			return refreshDaemonAfterMutation(cfg, "updated mcp config")
 		},
 	}
 }
@@ -153,7 +159,10 @@ func newMCPUseCommand(configPath *string) *cobra.Command {
 			for _, server := range cfg.MCPs.Servers {
 				if server.ID == id {
 					cfg.MCPs.Default = id
-					return config.Write(*configPath, cfg)
+					if err := config.Write(*configPath, cfg); err != nil {
+						return err
+					}
+					return refreshDaemonAfterMutation(cfg, "updated mcp config")
 				}
 			}
 			return fmt.Errorf("mcp server %q not found", id)
@@ -184,7 +193,7 @@ func newMCPLoginCommand(configPath *string) *cobra.Command {
 				return err
 			}
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "authenticated mcp endpoint %s\n", server.ID)
-			return nil
+			return refreshDaemonAfterMutation(cfg, "updated mcp auth")
 		},
 	}
 	addCredentialFlags(cmd, &input)
@@ -209,7 +218,7 @@ func newMCPLogoutCommand(configPath *string) *cobra.Command {
 				return err
 			}
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "cleared mcp auth for %s\n", server.ID)
-			return nil
+			return refreshDaemonAfterMutation(cfg, "updated mcp auth")
 		},
 	}
 }

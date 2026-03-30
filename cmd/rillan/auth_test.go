@@ -47,6 +47,27 @@ func TestAuthLoginStatusAndLogout(t *testing.T) {
 	}
 }
 
+func TestAuthLoginNotifiesDaemonRefresh(t *testing.T) {
+	store := map[string]string{}
+	secretstoreTestHooks(t, store)
+	configPath := tempConfigPath(t)
+	called := 0
+	daemonRefreshNotifier = func(config.Config) error {
+		called++
+		return nil
+	}
+	t.Cleanup(func() { daemonRefreshNotifier = notifyDaemonRuntimeRefresh })
+
+	login := newAuthCommand()
+	login.SetArgs([]string{"--config", configPath, "login", "--endpoint", "https://team.example", "--auth-strategy", "device_oidc", "--access-token", "token-1", "--issuer", "issuer-a"})
+	if err := login.Execute(); err != nil {
+		t.Fatalf("login Execute returned error: %v", err)
+	}
+	if got, want := called, 1; got != want {
+		t.Fatalf("daemon refresh calls = %d, want %d", got, want)
+	}
+}
+
 func tempConfigPath(t *testing.T) string {
 	t.Helper()
 	return t.TempDir() + "/config.yaml"

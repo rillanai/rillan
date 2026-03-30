@@ -193,3 +193,28 @@ func TestLLMLoginAndLogoutStoreCredentialsSecurely(t *testing.T) {
 		t.Fatal("expected credential ref to be cleared")
 	}
 }
+
+func TestLLMUseNotifiesDaemonRefresh(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	cfg := config.DefaultConfig()
+	cfg.LLMs.Providers = []config.LLMProviderConfig{{ID: "work-gpt", Backend: config.LLMBackendOpenAICompatible, Transport: config.LLMTransportHTTP, Endpoint: "https://api.openai.com/v1", AuthStrategy: config.AuthStrategyAPIKey}}
+	if err := config.Write(configPath, cfg); err != nil {
+		t.Fatalf("Write returned error: %v", err)
+	}
+
+	called := 0
+	daemonRefreshNotifier = func(config.Config) error {
+		called++
+		return nil
+	}
+	t.Cleanup(func() { daemonRefreshNotifier = notifyDaemonRuntimeRefresh })
+
+	cmd := newLLMCommand()
+	cmd.SetArgs([]string{"--config", configPath, "use", "work-gpt"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute returned error: %v", err)
+	}
+	if got, want := called, 1; got != want {
+		t.Fatalf("daemon refresh calls = %d, want %d", got, want)
+	}
+}

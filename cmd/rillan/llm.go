@@ -66,7 +66,10 @@ func newLLMAddCommand(configPath *string) *cobra.Command {
 			if cfg.LLMs.Default == "" {
 				cfg.LLMs.Default = entry.ID
 			}
-			return config.Write(*configPath, cfg)
+			if err := config.Write(*configPath, cfg); err != nil {
+				return err
+			}
+			return refreshDaemonAfterMutation(cfg, "updated llm provider config")
 		},
 	}
 
@@ -110,7 +113,10 @@ func newLLMRemoveCommand(configPath *string) *cobra.Command {
 			if cfg.LLMs.Default == id {
 				cfg.LLMs.Default = ""
 			}
-			return config.Write(*configPath, cfg)
+			if err := config.Write(*configPath, cfg); err != nil {
+				return err
+			}
+			return refreshDaemonAfterMutation(cfg, "updated llm provider config")
 		},
 	}
 }
@@ -160,7 +166,10 @@ func newLLMUseCommand(configPath *string) *cobra.Command {
 			for _, provider := range cfg.LLMs.Providers {
 				if provider.ID == id {
 					cfg.LLMs.Default = id
-					return config.Write(*configPath, cfg)
+					if err := config.Write(*configPath, cfg); err != nil {
+						return err
+					}
+					return refreshDaemonAfterMutation(cfg, "updated llm provider config")
 				}
 			}
 			return fmt.Errorf("llm provider %q not found", id)
@@ -191,7 +200,7 @@ func newLLMLoginCommand(configPath *string) *cobra.Command {
 				return err
 			}
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "authenticated llm provider %s\n", provider.ID)
-			return nil
+			return refreshDaemonAfterMutation(cfg, "updated llm provider auth")
 		},
 	}
 	addCredentialFlags(cmd, &input)
@@ -216,7 +225,7 @@ func newLLMLogoutCommand(configPath *string) *cobra.Command {
 				return err
 			}
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "cleared llm provider auth for %s\n", provider.ID)
-			return nil
+			return refreshDaemonAfterMutation(cfg, "updated llm provider auth")
 		},
 	}
 }

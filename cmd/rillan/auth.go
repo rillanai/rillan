@@ -67,7 +67,7 @@ func newAuthLoginCommand(configPath *string) *cobra.Command {
 				return err
 			}
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "logged into control plane at %s\n", cfg.Auth.Rillan.Endpoint)
-			return nil
+			return refreshDaemonAfterMutation(cfg, "updated control-plane auth")
 		},
 	}
 	cmd.Flags().StringVar(&endpoint, "endpoint", "", "Rillan control-plane endpoint URL")
@@ -93,7 +93,7 @@ func newAuthLogoutCommand(configPath *string) *cobra.Command {
 				return err
 			}
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "logged out of control plane\n")
-			return nil
+			return refreshDaemonAfterMutation(cfg, "updated control-plane auth")
 		},
 	}
 }
