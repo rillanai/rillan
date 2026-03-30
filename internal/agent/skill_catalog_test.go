@@ -96,10 +96,10 @@ func TestRemoveSkillRejectsEnabledProjectSkillWithoutForce(t *testing.T) {
 	if err := os.WriteFile(source, []byte("# Go Dev\n\nUse this skill for Go changes.\n"), 0o644); err != nil {
 		t.Fatalf("WriteFile returned error: %v", err)
 	}
-	if err := os.MkdirAll(filepath.Join(projectRoot, ".sidekick"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(projectRoot, ".rillan"), 0o755); err != nil {
 		t.Fatalf("MkdirAll returned error: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(projectRoot, ".sidekick", "project.yaml"), []byte("name: \"demo\"\nagent:\n  skills:\n    enabled: [go-dev]\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(projectRoot, ".rillan", "project.yaml"), []byte("name: \"demo\"\nagent:\n  skills:\n    enabled: [go-dev]\n"), 0o644); err != nil {
 		t.Fatalf("WriteFile returned error: %v", err)
 	}
 	skill, err := InstallSkill(source, time.Now())

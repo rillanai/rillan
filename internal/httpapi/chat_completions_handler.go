@@ -9,9 +9,11 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
+	"github.com/sidekickos/rillan/internal/agent"
 	"github.com/sidekickos/rillan/internal/audit"
 	"github.com/sidekickos/rillan/internal/classify"
 	"github.com/sidekickos/rillan/internal/config"
@@ -126,6 +128,18 @@ func (h *ChatCompletionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 
 	if err := internalopenai.ValidateChatCompletionRequest(request); err != nil {
 		internalopenai.WriteError(w, http.StatusBadRequest, "invalid_request_error", err.Error())
+		return
+	}
+	request, err = applyProjectPromptContext(request, h.project)
+	if err != nil {
+		h.logger.Error("project prompt composition failed", "request_id", RequestIDFromContext(r.Context()), "error", err.Error())
+		internalopenai.WriteError(w, http.StatusInternalServerError, "config_error", "project prompt composition failed")
+		return
+	}
+	body, err = json.Marshal(request)
+	if err != nil {
+		h.logger.Error("request re-encode failed", "request_id", RequestIDFromContext(r.Context()), "error", err.Error())
+		internalopenai.WriteError(w, http.StatusInternalServerError, "internal_error", "request could not be prepared")
 		return
 	}
 
@@ -300,6 +314,60 @@ func (h *ChatCompletionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	if err := copyBody(w, response.Body, outboundRequest.Stream || strings.Contains(response.Header.Get("Content-Type"), "text/event-stream")); err != nil {
 		h.logger.Error("proxy response copy failed", "request_id", RequestIDFromContext(r.Context()), "provider", h.provider.Name(), "error", err.Error())
 	}
+}
+
+func applyProjectPromptContext(req internalopenai.ChatCompletionRequest, project config.ProjectConfig) (internalopenai.ChatCompletionRequest, error) {
+	contextMessages, err := buildProjectPromptMessages(project)
+	if err != nil {
+		return internalopenai.ChatCompletionRequest{}, err
+	}
+	if len(contextMessages) == 0 {
+		return req, nil
+	}
+	req.Messages = append(contextMessages, req.Messages...)
+	return req, nil
+}
+
+func buildProjectPromptMessages(project config.ProjectConfig) ([]internalopenai.Message, error) {
+	messages := make([]internalopenai.Message, 0, 1+len(project.Agent.Skills.Enabled)+len(project.Instructions))
+	if text := strings.TrimSpace(project.SystemPrompt); text != "" {
+		messages = append(messages, newSystemMessage(text))
+	}
+	for _, skillID := range project.Agent.Skills.Enabled {
+		skill, err := agent.GetInstalledSkill(skillID)
+		if err != nil {
+			return nil, err
+		}
+		content, err := os.ReadFile(skill.ManagedPath)
+		if err != nil {
+			return nil, fmt.Errorf("read managed skill %q: %w", skill.ID, err)
+		}
+		text := strings.TrimSpace(string(content))
+		if text != "" {
+			messages = append(messages, newSystemMessage(text))
+		}
+	}
+	for _, instruction := range project.Instructions {
+		if text := strings.TrimSpace(instruction); text != "" {
+			messages = append(messages, newSystemMessage(text))
+		}
+	}
+	return messages, nil
+}
+
+func newSystemMessage(text string) internalopenai.Message {
+	return internalopenai.Message{
+		Role:    "system",
+		Content: mustMarshalPromptString(text),
+	}
+}
+
+func mustMarshalPromptString(text string) json.RawMessage {
+	data, err := json.Marshal(text)
+	if err != nil {
+		panic(err)
+	}
+	return data
 }
 
 func (h *ChatCompletionsHandler) recordAudit(ctx context.Context, event audit.Event) {

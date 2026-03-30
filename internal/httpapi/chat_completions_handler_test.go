@@ -8,11 +8,14 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/sidekickos/rillan/internal/agent"
 	"github.com/sidekickos/rillan/internal/audit"
 	"github.com/sidekickos/rillan/internal/config"
 	"github.com/sidekickos/rillan/internal/index"
@@ -85,6 +88,50 @@ func TestChatCompletionsHandlerCallsProviderOnce(t *testing.T) {
 	}
 	if got, want := string(provider.body), `{"model":"gpt-4o-mini","messages":[{"role":"user","content":"ping"}]}`; got != want {
 		t.Fatalf("provider body = %s, want %s", got, want)
+	}
+}
+
+func TestChatCompletionsHandlerInjectsProjectPromptSkillsAndInstructions(t *testing.T) {
+	t.Setenv("XDG_DATA_HOME", filepath.Join(t.TempDir(), "data"))
+	source := filepath.Join(t.TempDir(), "go-dev.md")
+	if err := os.WriteFile(source, []byte("# Go Dev\n\nPrefer small, verifiable Go changes.\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile returned error: %v", err)
+	}
+	if _, err := agent.InstallSkill(source, time.Now()); err != nil {
+		t.Fatalf("InstallSkill returned error: %v", err)
+	}
+
+	provider := &fakeProvider{}
+	handler := NewChatCompletionsHandler(
+		slog.Default(),
+		provider,
+		nil,
+		WithProjectConfig(config.ProjectConfig{
+			Name:         "demo",
+			SystemPrompt: "System prompt",
+			Instructions: []string{"Instruction one"},
+			Agent:        config.ProjectAgentConfig{Skills: config.ProjectSkillSelectionConfig{Enabled: []string{"go-dev"}}},
+		}),
+	)
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-4o-mini","messages":[{"role":"user","content":"ping"}]}`))
+
+	handler.ServeHTTP(recorder, request)
+
+	if got, want := recorder.Code, http.StatusOK; got != want {
+		t.Fatalf("status = %d, want %d", got, want)
+	}
+	if got, want := len(provider.request.Messages), 4; got != want {
+		t.Fatalf("messages sent upstream = %d, want %d", got, want)
+	}
+	for idx, want := range []string{"System prompt", "# Go Dev\n\nPrefer small, verifiable Go changes.", "Instruction one", "ping"} {
+		got, err := internalopenai.MessageText(provider.request.Messages[idx])
+		if err != nil {
+			t.Fatalf("MessageText(%d) returned error: %v", idx, err)
+		}
+		if got != want {
+			t.Fatalf("message[%d] = %q, want %q", idx, got, want)
+		}
 	}
 }
 

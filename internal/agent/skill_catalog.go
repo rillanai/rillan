@@ -203,7 +203,7 @@ func ListInstalledSkills() ([]InstalledSkill, error) {
 }
 
 func ensureSkillNotEnabledInCurrentProject(id string) error {
-	projectPath := config.DefaultProjectConfigPath("")
+	projectPath := config.ResolveProjectConfigPath("")
 	projectCfg, err := config.LoadProject(projectPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
