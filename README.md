@@ -43,7 +43,8 @@ This writes a starter `config.yaml` to your platform's config directory (see [Fi
 
 ```bash
 rillan llm add work-gpt \
-  --type openai \
+  --backend openai_compatible \
+  --transport http \
   --endpoint https://api.openai.com/v1 \
   --default-model gpt-4o
 
@@ -104,8 +105,10 @@ rillan status
 
 | Flag | Description |
 |------|-------------|
-| `--type` | Provider type: `openai`, `openai_compatible`, `anthropic`, `kimi`, `local` |
+| `--backend` | Provider backend identity (current runtime supports `openai_compatible`) |
+| `--transport` | Provider transport: `http`, `stdio` |
 | `--endpoint` | Provider API base URL |
+| `--command` | Repeatable. Command vector for `stdio` transport |
 | `--auth-strategy` | Auth method: `none`, `api_key`, `browser_oidc`, `device_oidc` |
 | `--default-model` | Default model name for requests |
 | `--capability` | Repeatable. Capability tags (e.g., `chat`, `reasoning`, `tool_calling`) |

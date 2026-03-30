@@ -165,7 +165,7 @@ Installed skills are managed in the data directory:
 ```bash
 # Quick start with default config
 rillan init
-rillan llm add dev --type openai --endpoint https://api.openai.com/v1 --default-model gpt-4o
+rillan llm add dev --backend openai_compatible --transport http --endpoint https://api.openai.com/v1 --default-model gpt-4o
 rillan llm login dev --api-key "$OPENAI_API_KEY"
 rillan llm use dev
 rillan serve

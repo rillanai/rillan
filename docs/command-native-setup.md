@@ -23,7 +23,8 @@ rillan init
 
 # 2. Register your first LLM provider
 rillan llm add work-gpt \
-  --type openai \
+  --backend openai_compatible \
+  --transport http \
   --endpoint https://api.openai.com/v1 \
   --default-model gpt-4o \
   --capability chat \
@@ -44,35 +45,25 @@ rillan llm list
 
 ### Adding providers
 
-Each provider needs a unique name, a type, and an endpoint:
+Each provider needs a unique name, a backend, and a transport:
 
 ```bash
-# OpenAI
+# OpenAI-compatible HTTP provider
 rillan llm add openai-prod \
-  --type openai \
+  --backend openai_compatible \
+  --transport http \
   --endpoint https://api.openai.com/v1 \
   --default-model gpt-4o
 
-# OpenAI-compatible (e.g., vLLM, LiteLLM, Azure)
-rillan llm add vllm-local \
-  --type openai_compatible \
-  --endpoint http://localhost:8000/v1 \
-  --auth-strategy none \
-  --default-model meta-llama/Llama-3-8B
-
-# Kimi / Moonshot
-rillan llm add kimi-prod \
-  --type kimi \
-  --endpoint https://api.moonshot.ai/v1
-
-# Local model (Ollama, etc.)
-rillan llm add local-llama \
-  --type local \
-  --endpoint http://localhost:11434/v1 \
+# Future stdio-backed extension entry
+rillan llm add repo-plugin \
+  --backend custom-backend \
+  --transport stdio \
+  --command rillan-provider-demo \
   --auth-strategy none
 ```
 
-**Provider types:** `openai`, `openai_compatible`, `anthropic`, `kimi`, `local`
+The current runtime executes built-in `openai_compatible` HTTP providers. `stdio` entries are stored now so the schema tracks ADR-004, but they are not executed yet.
 
 **Auth strategies:** `none`, `api_key`, `browser_oidc`, `device_oidc`
 
@@ -205,7 +196,7 @@ If the current repo's project config lists the skill in `agent.skills.enabled`, 
 
 ## Project-Level Configuration
 
-Create a `.rillan/project.yaml` (or `.sidekick/project.yaml`) in your repository root to set per-repo constraints:
+Create a `.rillan/project.yaml` in your repository root to set per-repo constraints. The loader still falls back to `.sidekick/project.yaml` while the repo converges on the new name.
 
 ```yaml
 name: "my-service"
@@ -258,7 +249,7 @@ When you change an endpoint URL, auth strategy, issuer, or audience on a provide
 ```bash
 # Provider endpoint changed
 rillan llm remove old-gpt
-rillan llm add new-gpt --type openai --endpoint https://new-api.example/v1
+rillan llm add new-gpt --backend openai_compatible --transport http --endpoint https://new-api.example/v1
 rillan llm login new-gpt --api-key "sk-new-..."
 ```
 

@@ -217,7 +217,7 @@ rillan init
   └─> WriteExampleConfig()  (internal/config/write_example.go)
         └─> writes config.yaml with DefaultConfig() values
 
-rillan llm add <name> --type openai ...
+rillan llm add <name> --backend openai_compatible --transport http ...
   └─> LoadConfig()           (internal/config/load.go)
   └─> append to LLMs.Providers
   └─> write config back to disk
