@@ -97,9 +97,9 @@ Bundled runtime families:
 
 | Command | Description |
 |---------|-------------|
-| `rillan config get` | Read a configuration value |
-| `rillan config set` | Write a configuration value |
-| `rillan config list` | List configuration values |
+| `rillan config get` | Placeholder command; not implemented yet |
+| `rillan config set` | Placeholder command; not implemented yet |
+| `rillan config list` | Placeholder command; not implemented yet |
 
 ## HTTP API
 
@@ -223,5 +223,5 @@ Environment variables are supported for backward compatibility and CI/automation
 ## Provider Policy
 
 - OpenAI-compatible upstreams are the default provider path.
-- Anthropic is represented in config as a future-facing seam but is not implemented as a runtime provider.
+- Anthropic is implemented as a native runtime provider family behind the provider host.
 - No unofficial access paths, shared credentials, scraped sessions, or browser-cookie flows are supported.

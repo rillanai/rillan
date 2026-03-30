@@ -53,6 +53,8 @@ rillan llm login work-gpt \
 rillan llm use work-gpt
 ```
 
+This example overrides the bundled OpenAI preset default model (`gpt-5`) with `gpt-4o`.
+
 ### 4. Start the daemon
 
 ```bash
