@@ -33,12 +33,17 @@ func New(cfg config.Config, project config.ProjectConfig, system *config.SystemC
 		logger = slog.Default()
 	}
 
-	providerCfg, err := config.ResolveRuntimeProviderConfig(cfg, project)
+	providerHostCfg, err := config.ResolveRuntimeProviderHostConfig(cfg, project)
 	if err != nil {
 		return nil, err
 	}
 
-	provider, err := providers.New(providerCfg, &http.Client{})
+	providerHost, err := providers.NewHost(providerHostCfg, &http.Client{})
+	if err != nil {
+		return nil, err
+	}
+
+	provider, err := providerHost.DefaultProvider()
 	if err != nil {
 		return nil, err
 	}

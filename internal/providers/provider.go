@@ -8,6 +8,8 @@ import (
 
 	"github.com/sidekickos/rillan/internal/config"
 	internalopenai "github.com/sidekickos/rillan/internal/openai"
+	provideranthropic "github.com/sidekickos/rillan/internal/providers/anthropic"
+	providerollama "github.com/sidekickos/rillan/internal/providers/ollama"
 	provideropenai "github.com/sidekickos/rillan/internal/providers/openai"
 )
 
@@ -18,11 +20,25 @@ type Provider interface {
 }
 
 func New(cfg config.ProviderConfig, client *http.Client) (Provider, error) {
+	return newAdapter(config.RuntimeProviderAdapterConfig{
+		ID:         "default",
+		Type:       cfg.Type,
+		OpenAI:     cfg.OpenAI,
+		Anthropic:  cfg.Anthropic,
+		LocalModel: cfg.Local,
+	}, client)
+}
+
+func newAdapter(cfg config.RuntimeProviderAdapterConfig, client *http.Client) (Provider, error) {
 	switch strings.ToLower(strings.TrimSpace(cfg.Type)) {
 	case config.ProviderOpenAI:
 		return provideropenai.New(cfg.OpenAI, client), nil
+	case config.ProviderOpenAICompatible:
+		return provideropenai.New(cfg.OpenAI, client), nil
 	case config.ProviderAnthropic:
-		return nil, fmt.Errorf("anthropic is intentionally not implemented in milestone one; use the openai provider path instead")
+		return provideranthropic.New(cfg.Anthropic, client), nil
+	case config.ProviderOllama:
+		return providerollama.New(cfg.LocalModel, client), nil
 	default:
 		return nil, fmt.Errorf("unsupported provider type %q", cfg.Type)
 	}
