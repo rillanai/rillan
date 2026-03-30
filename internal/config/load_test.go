@@ -590,6 +590,54 @@ func TestResolveRuntimeProviderHostConfigHonorsProjectAllowlist(t *testing.T) {
 	}
 }
 
+func TestResolveRuntimeProviderHostConfigIncludesEligibleAllowlistedProviders(t *testing.T) {
+	path := writeTempConfig(t, `schema_version: 2
+llms:
+  default: "remote-gpt"
+  providers:
+    - id: "remote-gpt"
+      backend: "openai_compatible"
+      transport: "http"
+      endpoint: "https://api.openai.com/v1"
+      auth_strategy: "none"
+    - id: "local-qwen"
+      backend: "ollama"
+      transport: "http"
+      endpoint: "http://127.0.0.1:11434"
+      default_model: "qwen3:8b"
+    - id: "stdio-future"
+      backend: "openai_compatible"
+      transport: "stdio"
+      command: ["future-provider"]
+runtime:
+  vector_store_mode: "embedded"
+`)
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+	project := DefaultProjectConfig()
+	project.Providers.LLMAllowed = []string{"remote-gpt", "local-qwen", "stdio-future"}
+
+	resolved, err := ResolveRuntimeProviderHostConfig(cfg, project)
+	if err != nil {
+		t.Fatalf("ResolveRuntimeProviderHostConfig returned error: %v", err)
+	}
+	if got, want := resolved.Default, "remote-gpt"; got != want {
+		t.Fatalf("default provider = %q, want %q", got, want)
+	}
+	if got, want := len(resolved.Providers), 2; got != want {
+		t.Fatalf("provider count = %d, want %d", got, want)
+	}
+	if got, want := resolved.Providers[0].ID, "remote-gpt"; got != want {
+		t.Fatalf("providers[0].id = %q, want %q", got, want)
+	}
+	if got, want := resolved.Providers[1].ID, "local-qwen"; got != want {
+		t.Fatalf("providers[1].id = %q, want %q", got, want)
+	}
+}
+
 func TestLoadProjectAppliesDefaultsAndResolvesRelativeSourcePaths(t *testing.T) {
 	projectDir := t.TempDir()
 	projectPath := filepath.Join(projectDir, ".rillan", "project.yaml")

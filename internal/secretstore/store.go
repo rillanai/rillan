@@ -17,6 +17,10 @@ var (
 	errNotFound   = keyring.ErrNotFound
 )
 
+func IsNotFound(err error) bool {
+	return errors.Is(err, errNotFound)
+}
+
 // SetKeyringGetForTest overrides keyring reads in tests.
 func SetKeyringGetForTest(fn func(service string, user string) (string, error)) {
 	keyringGet = fn

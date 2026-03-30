@@ -16,6 +16,8 @@ import (
 
 type ValidationMode string
 
+var ErrLLMProviderNotFound = errors.New("llm provider not found")
+
 const (
 	ValidationModeServe  ValidationMode = "serve"
 	ValidationModeIndex  ValidationMode = "index"
@@ -173,6 +175,7 @@ func ResolveActiveLLMProvider(cfg Config, project ProjectConfig) (ResolvedLLMPro
 			Command:       append([]string(nil), provider.Command...),
 			AuthStrategy:  strings.TrimSpace(provider.AuthStrategy),
 			DefaultModel:  strings.TrimSpace(provider.DefaultModel),
+			ModelPins:     append([]string(nil), provider.ModelPins...),
 			Capabilities:  append([]string(nil), provider.Capabilities...),
 			CredentialRef: strings.TrimSpace(provider.CredentialRef),
 		}, nil
@@ -199,6 +202,43 @@ func ResolveRuntimeProviderConfig(cfg Config, project ProjectConfig) (ProviderCo
 	return ProviderConfig{}, fmt.Errorf("default runtime provider %q not found", hostCfg.Default)
 }
 
+func ResolveLLMProviderByID(cfg Config, providerID string) (ResolvedLLMProvider, error) {
+	selectedID := strings.TrimSpace(providerID)
+	if cfg.SchemaVersion < SchemaVersionV2 || len(cfg.LLMs.Providers) == 0 {
+		if selectedID == "" || selectedID == defaultRuntimeProviderID {
+			return ResolvedLLMProvider{
+				ID:           defaultRuntimeProviderID,
+				Backend:      strings.TrimSpace(cfg.Provider.Type),
+				Transport:    LLMTransportHTTP,
+				Endpoint:     defaultLegacyProviderEndpoint(cfg),
+				AuthStrategy: defaultLegacyProviderAuthStrategy(cfg),
+			}, nil
+		}
+		return ResolvedLLMProvider{}, fmt.Errorf("%w: %q", ErrLLMProviderNotFound, providerID)
+	}
+
+	for _, provider := range cfg.LLMs.Providers {
+		if strings.TrimSpace(provider.ID) != selectedID {
+			continue
+		}
+		return ResolvedLLMProvider{
+			ID:            provider.ID,
+			Preset:        strings.TrimSpace(provider.Preset),
+			Backend:       strings.TrimSpace(provider.Backend),
+			Transport:     strings.TrimSpace(provider.Transport),
+			Endpoint:      strings.TrimSpace(provider.Endpoint),
+			Command:       append([]string(nil), provider.Command...),
+			AuthStrategy:  strings.TrimSpace(provider.AuthStrategy),
+			DefaultModel:  strings.TrimSpace(provider.DefaultModel),
+			ModelPins:     append([]string(nil), provider.ModelPins...),
+			Capabilities:  append([]string(nil), provider.Capabilities...),
+			CredentialRef: strings.TrimSpace(provider.CredentialRef),
+		}, nil
+	}
+
+	return ResolvedLLMProvider{}, fmt.Errorf("%w: %q", ErrLLMProviderNotFound, providerID)
+}
+
 func ResolveRuntimeProviderHostConfig(cfg Config, project ProjectConfig) (RuntimeProviderHostConfig, error) {
 	if cfg.SchemaVersion < SchemaVersionV2 || len(cfg.LLMs.Providers) == 0 {
 		return RuntimeProviderHostConfig{
@@ -219,17 +259,52 @@ func ResolveRuntimeProviderHostConfig(cfg Config, project ProjectConfig) (Runtim
 	if selected.Transport != LLMTransportHTTP {
 		return RuntimeProviderHostConfig{}, fmt.Errorf("llm provider %q uses unsupported transport %q in the current runtime", selected.ID, selected.Transport)
 	}
-	providerCfg, err := resolveRuntimeProviderAdapterConfig(cfg, selected)
-	if err != nil {
-		return RuntimeProviderHostConfig{}, err
+
+	allowed := makeAllowlist(project.Providers.LLMAllowed)
+	providers := make([]RuntimeProviderAdapterConfig, 0, len(cfg.LLMs.Providers))
+	for _, provider := range cfg.LLMs.Providers {
+		providerID := strings.TrimSpace(provider.ID)
+		if providerID == "" {
+			continue
+		}
+		if len(allowed) > 0 {
+			if _, ok := allowed[providerID]; !ok {
+				continue
+			}
+		}
+
+		resolved, err := ResolveLLMProviderByID(cfg, providerID)
+		if err != nil {
+			if providerID == selected.ID {
+				return RuntimeProviderHostConfig{}, err
+			}
+			continue
+		}
+		if resolved.Transport != LLMTransportHTTP {
+			if providerID == selected.ID {
+				return RuntimeProviderHostConfig{}, fmt.Errorf("llm provider %q uses unsupported transport %q in the current runtime", resolved.ID, resolved.Transport)
+			}
+			continue
+		}
+		providerCfg, err := ResolveRuntimeProviderAdapterConfig(cfg, resolved)
+		if err != nil {
+			if providerID == selected.ID {
+				return RuntimeProviderHostConfig{}, err
+			}
+			continue
+		}
+		providers = append(providers, providerCfg)
+	}
+	if len(providers) == 0 {
+		return RuntimeProviderHostConfig{}, fmt.Errorf("runtime provider host must include at least one provider")
 	}
 	return RuntimeProviderHostConfig{
 		Default:   selected.ID,
-		Providers: []RuntimeProviderAdapterConfig{providerCfg},
+		Providers: providers,
 	}, nil
 }
 
-func resolveRuntimeProviderAdapterConfig(cfg Config, selected ResolvedLLMProvider) (RuntimeProviderAdapterConfig, error) {
+func ResolveRuntimeProviderAdapterConfig(cfg Config, selected ResolvedLLMProvider) (RuntimeProviderAdapterConfig, error) {
 	providerCfg := RuntimeProviderAdapterConfig{
 		ID:     selected.ID,
 		Preset: selected.Preset,
@@ -271,6 +346,18 @@ func resolveRuntimeProviderAdapterConfig(cfg Config, selected ResolvedLLMProvide
 	default:
 		return RuntimeProviderAdapterConfig{}, fmt.Errorf("llm provider %q uses unsupported backend %q in the current runtime", selected.ID, selected.Backend)
 	}
+}
+
+func makeAllowlist(values []string) map[string]struct{} {
+	allowed := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		candidateID := strings.TrimSpace(value)
+		if candidateID == "" {
+			continue
+		}
+		allowed[candidateID] = struct{}{}
+	}
+	return allowed
 }
 
 func resolveRuntimeProviderBearer(selected ResolvedLLMProvider) (string, error) {
@@ -323,6 +410,26 @@ func validateRuntimeProviderCredentialBinding(credential secretstore.Credential,
 }
 
 const defaultRuntimeProviderID = "default"
+
+func defaultLegacyProviderEndpoint(cfg Config) string {
+	switch normalizeString(cfg.Provider.Type) {
+	case ProviderOpenAI:
+		return strings.TrimSpace(cfg.Provider.OpenAI.BaseURL)
+	case ProviderAnthropic:
+		return strings.TrimSpace(cfg.Provider.Anthropic.BaseURL)
+	default:
+		return strings.TrimSpace(cfg.Provider.Local.BaseURL)
+	}
+}
+
+func defaultLegacyProviderAuthStrategy(cfg Config) string {
+	switch normalizeString(cfg.Provider.Type) {
+	case ProviderOpenAI, ProviderAnthropic:
+		return AuthStrategyAPIKey
+	default:
+		return AuthStrategyNone
+	}
+}
 
 func applyDerivedDefaults(cfg *Config, configPath string) {
 	if cfg.SchemaVersion == 0 {
@@ -426,11 +533,17 @@ func applyLLMProviderPresetDefaults(provider *LLMProviderConfig) {
 	if strings.TrimSpace(provider.DefaultModel) == "" {
 		provider.DefaultModel = preset.DefaultModel
 	}
+	if len(provider.ModelPins) == 0 && len(preset.ModelPins) > 0 {
+		provider.ModelPins = append([]string(nil), preset.ModelPins...)
+	}
 	if len(provider.Capabilities) == 0 {
 		provider.Capabilities = append([]string(nil), preset.Capabilities...)
 	}
 	if strings.TrimSpace(provider.CredentialRef) == "" && strings.TrimSpace(provider.ID) != "" {
 		provider.CredentialRef = "keyring://rillan/llm/" + strings.TrimSpace(provider.ID)
+	}
+	if len(provider.ModelPins) == 0 && strings.TrimSpace(provider.DefaultModel) != "" {
+		provider.ModelPins = []string{strings.TrimSpace(provider.DefaultModel)}
 	}
 }
 
