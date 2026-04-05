@@ -8,9 +8,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/sidekickos/rillan/internal/chat"
-	"github.com/sidekickos/rillan/internal/config"
-	internalopenai "github.com/sidekickos/rillan/internal/openai"
+	"github.com/rillanai/rillan/internal/chat"
+	"github.com/rillanai/rillan/internal/config"
+	internalopenai "github.com/rillanai/rillan/internal/openai"
 )
 
 type observedRequest struct {

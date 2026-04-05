@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/sidekickos/rillan/internal/secretstore"
+	"github.com/rillanai/rillan/internal/secretstore"
 	"github.com/spf13/cobra"
 )
 

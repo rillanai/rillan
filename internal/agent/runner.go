@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	toolskills "github.com/sidekickos/rillan/internal/agent/skills"
+	toolskills "github.com/rillanai/rillan/internal/agent/skills"
 )
 
 type Runner interface {

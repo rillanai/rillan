@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>Label</key>
-	<string>com.sidekickos.rillan</string>
+	<string>com.rillanai.rillan</string>
 
 	<key>ProgramArguments</key>
 	<array>

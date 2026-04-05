@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sidekickos/rillan/internal/audit"
-	"github.com/sidekickos/rillan/internal/config"
-	"github.com/sidekickos/rillan/internal/index"
-	"github.com/sidekickos/rillan/internal/modules"
-	"github.com/sidekickos/rillan/internal/ollama"
+	"github.com/rillanai/rillan/internal/audit"
+	"github.com/rillanai/rillan/internal/config"
+	"github.com/rillanai/rillan/internal/index"
+	"github.com/rillanai/rillan/internal/modules"
+	"github.com/rillanai/rillan/internal/ollama"
 	"github.com/spf13/cobra"
 )
 
@@ -44,7 +44,7 @@ func newStatusCommand() *cobra.Command {
 
 			var systemCfg *config.SystemConfig
 
-			systemConfigPath := config.DefaultSystemConfigPath()
+			systemConfigPath := config.ResolveSystemConfigPath()
 			systemConfigState := "missing"
 			if loadedSystemCfg, err := config.LoadSystem(systemConfigPath); err == nil {
 				systemConfigState = "loaded"

@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/sidekickos/rillan/internal/index"
+	"github.com/rillanai/rillan/internal/index"
 )
 
 func TestRegistryReadFilesReturnsBoundedContent(t *testing.T) {

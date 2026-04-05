@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sidekickos/rillan/internal/chat"
-	"github.com/sidekickos/rillan/internal/config"
-	"github.com/sidekickos/rillan/internal/index"
+	"github.com/rillanai/rillan/internal/chat"
+	"github.com/rillanai/rillan/internal/config"
+	"github.com/rillanai/rillan/internal/index"
 )
 
 func TestResolveSettingsRequestOverrideWins(t *testing.T) {

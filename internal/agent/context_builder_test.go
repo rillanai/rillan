@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sidekickos/rillan/internal/policy"
-	"github.com/sidekickos/rillan/internal/retrieval"
+	"github.com/rillanai/rillan/internal/policy"
+	"github.com/rillanai/rillan/internal/retrieval"
 )
 
 func TestBuildContextPackagePreservesEvidenceAndPolicyTrace(t *testing.T) {

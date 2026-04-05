@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sidekickos/rillan/internal/chat"
-	"github.com/sidekickos/rillan/internal/config"
-	internalollama "github.com/sidekickos/rillan/internal/ollama"
-	internalopenai "github.com/sidekickos/rillan/internal/openai"
+	"github.com/rillanai/rillan/internal/chat"
+	"github.com/rillanai/rillan/internal/config"
+	internalollama "github.com/rillanai/rillan/internal/ollama"
+	internalopenai "github.com/rillanai/rillan/internal/openai"
 )
 
 type Client struct {

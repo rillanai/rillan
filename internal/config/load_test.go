@@ -15,7 +15,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sidekickos/rillan/internal/secretstore"
+	"github.com/rillanai/rillan/internal/secretstore"
 	keyring "github.com/zalando/go-keyring"
 )
 
@@ -322,6 +322,15 @@ func TestDefaultPathsAreNonEmpty(t *testing.T) {
 	}
 	if DefaultLogDir() == "" {
 		t.Fatal("DefaultLogDir returned empty string")
+	}
+}
+
+func TestDefaultSystemConfigPathUsesRillanDir(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	if got, want := DefaultSystemConfigPath(), filepath.Join(home, ".rillan", "system.yaml"); got != want {
+		t.Fatalf("DefaultSystemConfigPath() = %q, want %q", got, want)
 	}
 }
 
@@ -824,6 +833,21 @@ func TestResolveProjectConfigPathFallsBackToLegacySidekickLocation(t *testing.T)
 	}
 }
 
+func TestResolveSystemConfigPathFallsBackToLegacySidekickLocation(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	legacy := filepath.Join(home, ".sidekick", "system.yaml")
+	if err := os.MkdirAll(filepath.Dir(legacy), 0o755); err != nil {
+		t.Fatalf("mkdir legacy system config dir: %v", err)
+	}
+	if err := os.WriteFile(legacy, []byte("encrypted_payload: \"ciphertext\"\n"), 0o600); err != nil {
+		t.Fatalf("write legacy system config: %v", err)
+	}
+	if got, want := ResolveSystemConfigPath(), legacy; got != want {
+		t.Fatalf("ResolveSystemConfigPath() = %q, want %q", got, want)
+	}
+}
+
 func TestLoadProjectRejectsMalformedYAML(t *testing.T) {
 	projectPath := writeTempProjectConfig(t, "name: [oops\n")
 
@@ -971,7 +995,7 @@ func encryptSystemPolicyPayloadForTest(policy SystemPolicy, key []byte, random i
 }
 
 func TestLoadSystemMissingReturnsNotExist(t *testing.T) {
-	missing := filepath.Join(t.TempDir(), ".sidekick", "system.yaml")
+	missing := filepath.Join(t.TempDir(), ".rillan", "system.yaml")
 
 	if _, err := LoadSystem(missing); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("LoadSystem error = %v, want os.ErrNotExist", err)
@@ -1004,7 +1028,7 @@ func writeTempConfig(t *testing.T, content string) string {
 func writeTempProjectConfig(t *testing.T, content string) string {
 	t.Helper()
 
-	dir := filepath.Join(t.TempDir(), ".sidekick")
+	dir := filepath.Join(t.TempDir(), ".rillan")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatalf("mkdir temp project dir: %v", err)
 	}
@@ -1020,7 +1044,7 @@ func writeTempProjectConfig(t *testing.T, content string) string {
 func writeTempSystemConfig(t *testing.T, content string) string {
 	t.Helper()
 
-	dir := filepath.Join(t.TempDir(), ".sidekick")
+	dir := filepath.Join(t.TempDir(), ".rillan")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatalf("mkdir temp system dir: %v", err)
 	}

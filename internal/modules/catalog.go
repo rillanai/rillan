@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/sidekickos/rillan/internal/config"
+	"github.com/rillanai/rillan/internal/config"
 	"gopkg.in/yaml.v3"
 )
 

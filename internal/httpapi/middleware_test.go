@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sidekickos/rillan/internal/observability"
+	"github.com/rillanai/rillan/internal/observability"
 )
 
 func TestWrapWithMiddlewareAddsRequestIDHeader(t *testing.T) {

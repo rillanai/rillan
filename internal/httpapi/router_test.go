@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sidekickos/rillan/internal/chat"
-	"github.com/sidekickos/rillan/internal/config"
-	"github.com/sidekickos/rillan/internal/observability"
-	"github.com/sidekickos/rillan/internal/providers"
+	"github.com/rillanai/rillan/internal/chat"
+	"github.com/rillanai/rillan/internal/config"
+	"github.com/rillanai/rillan/internal/observability"
+	"github.com/rillanai/rillan/internal/providers"
 )
 
 type routerTestProvider struct{}

@@ -10,11 +10,11 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/sidekickos/rillan/internal/chat"
-	"github.com/sidekickos/rillan/internal/config"
-	"github.com/sidekickos/rillan/internal/modules"
-	internalopenai "github.com/sidekickos/rillan/internal/openai"
-	"github.com/sidekickos/rillan/internal/secretstore"
+	"github.com/rillanai/rillan/internal/chat"
+	"github.com/rillanai/rillan/internal/config"
+	"github.com/rillanai/rillan/internal/modules"
+	internalopenai "github.com/rillanai/rillan/internal/openai"
+	"github.com/rillanai/rillan/internal/secretstore"
 	keyring "github.com/zalando/go-keyring"
 )
 

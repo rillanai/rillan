@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/sidekickos/rillan/internal/config"
-	"github.com/sidekickos/rillan/internal/secretstore"
+	"github.com/rillanai/rillan/internal/config"
+	"github.com/rillanai/rillan/internal/secretstore"
 	"github.com/spf13/cobra"
 )
 

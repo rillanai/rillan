@@ -4,12 +4,12 @@
 - **Status**: active
 - **Use this file for**: milestone ordering, backlog decomposition, and public-roadmap translation
 
-This document is the issue-ready internal backlog for seeding a future `SidekickOS` Linear team and `Rillan` project. It is intentionally more concrete than the public repo roadmap, which should remain short and directional. Where a dedicated milestone plan exists, that plan is the execution artifact and this file should stay at the backlog level.
+This document is the issue-ready internal backlog for the `Rillan` Linear project under the current `Skaphos` workspace/team setup. It is intentionally more concrete than the public repo roadmap, which should remain short and directional. Where a dedicated milestone plan exists, that plan is the execution artifact and this file should stay at the backlog level.
 
 ## Project
 
 - Name: `Rillan`
-- Team: `SidekickOS` (to be created)
+- Team/Workspace: `Skaphos` (current host for the `Rillan` project)
 - Public roadmap style: `Now / Next / Later`
 - Internal roadmap style: explicit milestones and workstreams
 
@@ -487,13 +487,14 @@ The public repo roadmap should stay much simpler than Linear:
 
 ## Current Known Blockers
 
-1. The `SidekickOS` team does not yet exist in Linear, so project placement is blocked.
-2. Actual issue creation should wait until the project lives under the correct team.
+1. The Linear project metadata still needs to stay aligned with the Rillan kernel / Lyra client split captured in `../resources`.
+2. Website/domain and Lyra-client follow-on work needs explicit project/task tracking separate from the kernel roadmap.
 3. Tier-0 encrypted config requires OS keychain integration research per platform.
 
-## Immediate Next Moves Once SidekickOS Team Exists
+## Immediate Next Moves
 
-1. Create `Rillan` project under `SidekickOS`
-2. Add milestones from this document
-3. Seed issues milestone by milestone
-4. Keep repo-facing roadmap and docs simpler than Linear internals
+1. Keep the `Rillan` Linear project aligned to the kernel-first product description.
+2. Add milestones from this document.
+3. Seed issues milestone by milestone.
+4. Track Lyra client / website-domain work as separate follow-on tasks rather than folding it into the kernel roadmap.
+5. Keep repo-facing roadmap and docs simpler than Linear internals.

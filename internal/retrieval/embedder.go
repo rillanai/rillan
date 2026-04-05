@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/sidekickos/rillan/internal/index"
-	"github.com/sidekickos/rillan/internal/ollama"
+	"github.com/rillanai/rillan/internal/index"
+	"github.com/rillanai/rillan/internal/ollama"
 )
 
 // QueryEmbedder produces a vector embedding for a search query.

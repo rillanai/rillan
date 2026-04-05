@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 
-	"github.com/sidekickos/rillan/internal/version"
+	"github.com/rillanai/rillan/internal/version"
 	"github.com/spf13/cobra"
 )
 

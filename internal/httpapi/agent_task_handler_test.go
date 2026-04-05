@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sidekickos/rillan/internal/agent"
-	"github.com/sidekickos/rillan/internal/audit"
+	"github.com/rillanai/rillan/internal/agent"
+	"github.com/rillanai/rillan/internal/audit"
 )
 
 func TestAgentTaskHandlerReturnsOrchestrationResult(t *testing.T) {

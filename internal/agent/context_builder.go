@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/sidekickos/rillan/internal/policy"
-	"github.com/sidekickos/rillan/internal/retrieval"
+	"github.com/rillanai/rillan/internal/policy"
+	"github.com/rillanai/rillan/internal/retrieval"
 )
 
 type BuildInput struct {

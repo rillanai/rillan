@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sidekickos/rillan/internal/config"
+	"github.com/rillanai/rillan/internal/config"
 )
 
 const skillCatalogParserVersion = "markdown_v1"

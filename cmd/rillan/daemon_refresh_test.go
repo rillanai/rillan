@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sidekickos/rillan/internal/config"
-	"github.com/sidekickos/rillan/internal/httpapi"
+	"github.com/rillanai/rillan/internal/config"
+	"github.com/rillanai/rillan/internal/httpapi"
 )
 
 func TestNotifyDaemonRuntimeRefreshIgnoresConnectionRefused(t *testing.T) {

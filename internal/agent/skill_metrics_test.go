@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sidekickos/rillan/internal/policy"
+	"github.com/rillanai/rillan/internal/policy"
 )
 
 func TestRecordSkillLatencyPersistsOutsideConfigAndIndex(t *testing.T) {

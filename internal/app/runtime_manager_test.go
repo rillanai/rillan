@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sidekickos/rillan/internal/chat"
-	"github.com/sidekickos/rillan/internal/httpapi"
+	"github.com/rillanai/rillan/internal/chat"
+	"github.com/rillanai/rillan/internal/httpapi"
 )
 
 type managerTestProvider struct {

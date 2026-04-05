@@ -14,7 +14,7 @@ These artifacts package `rillan serve` as a user-level service without adding cu
 
 Artifact:
 
-- `packaging/launchd/com.sidekickos.rillan.plist`
+- `packaging/launchd/com.rillanai.rillan.plist`
 
 Preparation:
 
@@ -24,22 +24,22 @@ Preparation:
 Validation:
 
 ```bash
-plutil -lint packaging/launchd/com.sidekickos.rillan.plist
+plutil -lint packaging/launchd/com.rillanai.rillan.plist
 ```
 
 Install / start:
 
 ```bash
-cp packaging/launchd/com.sidekickos.rillan.plist ~/Library/LaunchAgents/
-launchctl bootstrap gui/$UID ~/Library/LaunchAgents/com.sidekickos.rillan.plist
-launchctl print gui/$UID/com.sidekickos.rillan
+cp packaging/launchd/com.rillanai.rillan.plist ~/Library/LaunchAgents/
+launchctl bootstrap gui/$UID ~/Library/LaunchAgents/com.rillanai.rillan.plist
+launchctl print gui/$UID/com.rillanai.rillan
 ```
 
 Stop / uninstall:
 
 ```bash
-launchctl bootout gui/$UID ~/Library/LaunchAgents/com.sidekickos.rillan.plist
-rm ~/Library/LaunchAgents/com.sidekickos.rillan.plist
+launchctl bootout gui/$UID ~/Library/LaunchAgents/com.rillanai.rillan.plist
+rm ~/Library/LaunchAgents/com.rillanai.rillan.plist
 ```
 
 ## Linux systemd --user

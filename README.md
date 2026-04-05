@@ -2,7 +2,7 @@
 
 Every AI-powered dev tool you use -- Claude Code, Cursor, Copilot, opencode -- sends your code, your prompts, and your context to a remote API. You trust each tool to handle credentials, route to the right model, and not leak trade secrets. That trust is implicit, spread across a dozen configs, and invisible when it breaks.
 
-Rillan is a local daemon that sits between your tools and the LLM providers they call. It gives you one place to control what goes out, where it goes, and what comes back.
+Rillan is the local-first Context Control Plane kernel: a Go daemon that sits between your tools and the LLM providers they call so context, policy, routing, and audit stay under your control. Rillan is the product in this repo; Lyra is the separate future/public client experience layer that will consume the kernel.
 
 ## What it does
 

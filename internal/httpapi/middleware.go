@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/sidekickos/rillan/internal/observability"
+	"github.com/rillanai/rillan/internal/observability"
 )
 
 func WrapWithMiddleware(logger *slog.Logger, metrics *observability.Registry, next http.Handler) http.Handler {

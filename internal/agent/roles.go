@@ -1,6 +1,6 @@
 package agent
 
-import "github.com/sidekickos/rillan/internal/policy"
+import "github.com/rillanai/rillan/internal/policy"
 
 type Role string
 

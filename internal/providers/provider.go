@@ -6,12 +6,12 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/sidekickos/rillan/internal/chat"
-	"github.com/sidekickos/rillan/internal/config"
-	provideranthropic "github.com/sidekickos/rillan/internal/providers/anthropic"
-	providerollama "github.com/sidekickos/rillan/internal/providers/ollama"
-	provideropenai "github.com/sidekickos/rillan/internal/providers/openai"
-	providerstdio "github.com/sidekickos/rillan/internal/providers/stdio"
+	"github.com/rillanai/rillan/internal/chat"
+	"github.com/rillanai/rillan/internal/config"
+	provideranthropic "github.com/rillanai/rillan/internal/providers/anthropic"
+	providerollama "github.com/rillanai/rillan/internal/providers/ollama"
+	provideropenai "github.com/rillanai/rillan/internal/providers/openai"
+	providerstdio "github.com/rillanai/rillan/internal/providers/stdio"
 )
 
 type ChatRequest struct {

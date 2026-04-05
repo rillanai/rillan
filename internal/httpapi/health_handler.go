@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	internalopenai "github.com/sidekickos/rillan/internal/openai"
+	internalopenai "github.com/rillanai/rillan/internal/openai"
 )
 
 type readinessChecker interface {

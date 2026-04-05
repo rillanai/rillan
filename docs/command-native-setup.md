@@ -211,7 +211,7 @@ If the current repo's project config lists the skill in `agent.skills.enabled`, 
 
 ## Project-Level Configuration
 
-Create a `.rillan/project.yaml` in your repository root to set per-repo constraints. The loader still falls back to `.sidekick/project.yaml` while the repo converges on the new name.
+Create a `.rillan/project.yaml` in your repository root to set per-repo constraints. The loader still falls back to legacy `.sidekick/project.yaml` files for backward compatibility.
 
 ```yaml
 name: "my-service"

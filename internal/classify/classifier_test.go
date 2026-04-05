@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sidekickos/rillan/internal/chat"
-	"github.com/sidekickos/rillan/internal/ollama"
-	"github.com/sidekickos/rillan/internal/policy"
+	"github.com/rillanai/rillan/internal/chat"
+	"github.com/rillanai/rillan/internal/ollama"
+	"github.com/rillanai/rillan/internal/policy"
 )
 
 func TestOllamaClassifierClassify(t *testing.T) {

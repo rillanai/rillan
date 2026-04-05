@@ -4,7 +4,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/sidekickos/rillan/internal/config"
+	"github.com/rillanai/rillan/internal/config"
 )
 
 func BuildCatalog(cfg config.Config, project config.ProjectConfig) Catalog {

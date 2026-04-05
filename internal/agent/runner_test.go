@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/sidekickos/rillan/internal/policy"
+	"github.com/rillanai/rillan/internal/policy"
 )
 
 func TestSharedRunnerReusesOneRuntimeAcrossRoles(t *testing.T) {

@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/sidekickos/rillan/internal/agent"
-	internalopenai "github.com/sidekickos/rillan/internal/openai"
+	"github.com/rillanai/rillan/internal/agent"
+	internalopenai "github.com/rillanai/rillan/internal/openai"
 )
 
 type AgentProposalDecisionRequest struct {

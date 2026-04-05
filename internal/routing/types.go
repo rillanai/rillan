@@ -1,8 +1,8 @@
 package routing
 
 import (
-	"github.com/sidekickos/rillan/internal/config"
-	"github.com/sidekickos/rillan/internal/policy"
+	"github.com/rillanai/rillan/internal/config"
+	"github.com/rillanai/rillan/internal/policy"
 )
 
 type Location string

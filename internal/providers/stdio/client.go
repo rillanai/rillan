@@ -10,7 +10,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/sidekickos/rillan/internal/chat"
+	"github.com/rillanai/rillan/internal/chat"
 )
 
 type Client struct {

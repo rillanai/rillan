@@ -171,7 +171,7 @@ instructions:
 
 ### System config (machine-local)
 
-Encrypted policy and identity rules stored in `system.yaml`. Managed by tooling, not hand-edited.
+Encrypted policy and identity rules stored in `~/.rillan/system.yaml` by default, with legacy `.sidekick/system.yaml` still recognized as a fallback. Managed by tooling, not hand-edited.
 
 Repo-local modules become runtime-active only when both of these are true:
 - the repo enables them via `project.modules.enabled`

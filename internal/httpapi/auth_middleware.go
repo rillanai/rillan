@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/sidekickos/rillan/internal/config"
-	internalopenai "github.com/sidekickos/rillan/internal/openai"
+	"github.com/rillanai/rillan/internal/config"
+	internalopenai "github.com/rillanai/rillan/internal/openai"
 )
 
 var daemonAuthBearerResolver = config.ResolveServerAuthBearer

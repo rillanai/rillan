@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/sidekickos/rillan/internal/config"
-	"github.com/sidekickos/rillan/internal/index"
-	"github.com/sidekickos/rillan/internal/ollama"
+	"github.com/rillanai/rillan/internal/config"
+	"github.com/rillanai/rillan/internal/index"
+	"github.com/rillanai/rillan/internal/ollama"
 	"github.com/spf13/cobra"
 )
 

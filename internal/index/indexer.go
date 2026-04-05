@@ -4,7 +4,7 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/sidekickos/rillan/internal/config"
+	"github.com/rillanai/rillan/internal/config"
 )
 
 // RebuildOption configures the Rebuild function.

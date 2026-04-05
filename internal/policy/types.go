@@ -3,8 +3,8 @@ package policy
 import (
 	"context"
 
-	"github.com/sidekickos/rillan/internal/chat"
-	"github.com/sidekickos/rillan/internal/config"
+	"github.com/rillanai/rillan/internal/chat"
+	"github.com/rillanai/rillan/internal/config"
 )
 
 type Verdict string

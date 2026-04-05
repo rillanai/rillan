@@ -18,8 +18,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sidekickos/rillan/internal/config"
-	"github.com/sidekickos/rillan/internal/index"
+	"github.com/rillanai/rillan/internal/config"
+	"github.com/rillanai/rillan/internal/index"
 	keyring "github.com/zalando/go-keyring"
 )
 
@@ -147,7 +147,7 @@ func TestStatusCommandReportsInvalidSystemConfigWithoutKeyringMaterial(t *testin
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	systemPath := filepath.Join(home, ".sidekick", "system.yaml")
+	systemPath := filepath.Join(home, ".rillan", "system.yaml")
 	if err := os.MkdirAll(filepath.Dir(systemPath), 0o755); err != nil {
 		t.Fatalf("MkdirAll returned error: %v", err)
 	}
@@ -348,7 +348,7 @@ func writeModuleManifest(t *testing.T, path string, content string) {
 
 func writeStatusSystemConfig(t *testing.T, home string, payload string) {
 	t.Helper()
-	path := filepath.Join(home, ".sidekick", "system.yaml")
+	path := filepath.Join(home, ".rillan", "system.yaml")
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatalf("MkdirAll returned error: %v", err)
 	}

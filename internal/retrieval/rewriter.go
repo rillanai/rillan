@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/sidekickos/rillan/internal/ollama"
+	"github.com/rillanai/rillan/internal/ollama"
 )
 
 // QueryRewriter transforms a raw user query before embedding.

@@ -1,4 +1,4 @@
-module github.com/sidekickos/rillan
+module github.com/rillanai/rillan
 
 go 1.25.0
 

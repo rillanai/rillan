@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/sidekickos/rillan/internal/app"
-	"github.com/sidekickos/rillan/internal/config"
+	"github.com/rillanai/rillan/internal/app"
+	"github.com/rillanai/rillan/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -32,7 +32,7 @@ func newServeCommand() *cobra.Command {
 				}
 			}
 
-			systemConfigPath := config.DefaultSystemConfigPath()
+			systemConfigPath := config.ResolveSystemConfigPath()
 			var systemCfg *config.SystemConfig
 			loadedSystemCfg, err := config.LoadSystem(systemConfigPath)
 			if err != nil {

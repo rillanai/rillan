@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/sidekickos/rillan/internal/audit"
+	"github.com/rillanai/rillan/internal/audit"
 )
 
 var ErrApprovalRequired = errors.New("action approval required")

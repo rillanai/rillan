@@ -8,7 +8,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/sidekickos/rillan/internal/config"
+	"github.com/rillanai/rillan/internal/config"
 )
 
 // SkillMetric records the recent runtime cost of one skill kind.

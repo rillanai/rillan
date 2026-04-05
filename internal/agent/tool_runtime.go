@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	toolskills "github.com/sidekickos/rillan/internal/agent/skills"
+	toolskills "github.com/rillanai/rillan/internal/agent/skills"
 )
 
 type ToolKind string

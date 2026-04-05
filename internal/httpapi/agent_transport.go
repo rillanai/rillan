@@ -3,7 +3,7 @@ package httpapi
 import (
 	"encoding/json"
 
-	"github.com/sidekickos/rillan/internal/agent"
+	"github.com/rillanai/rillan/internal/agent"
 )
 
 type AgentTaskRequest struct {

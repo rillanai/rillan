@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/sidekickos/rillan/internal/audit"
+	"github.com/rillanai/rillan/internal/audit"
 )
 
 func TestApprovalGateProposeRecordsAuditEvent(t *testing.T) {

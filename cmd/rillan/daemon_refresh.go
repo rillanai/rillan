@@ -12,8 +12,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/sidekickos/rillan/internal/config"
-	"github.com/sidekickos/rillan/internal/httpapi"
+	"github.com/rillanai/rillan/internal/config"
+	"github.com/rillanai/rillan/internal/httpapi"
 )
 
 var daemonRefreshNotifier = notifyDaemonRuntimeRefresh

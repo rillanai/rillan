@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sidekickos/rillan/internal/agent"
+	"github.com/rillanai/rillan/internal/agent"
 	"github.com/spf13/cobra"
 )
 

@@ -3,7 +3,7 @@ package agent
 import (
 	"strings"
 
-	"github.com/sidekickos/rillan/internal/policy"
+	"github.com/rillanai/rillan/internal/policy"
 )
 
 func DecideExecutionMode(pkg ContextPackage) OrchestrationDecision {

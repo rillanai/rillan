@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/sidekickos/rillan/internal/config"
-	"github.com/sidekickos/rillan/internal/secretstore"
+	"github.com/rillanai/rillan/internal/config"
+	"github.com/rillanai/rillan/internal/secretstore"
 )
 
 func TestAuthLoginStatusAndLogout(t *testing.T) {

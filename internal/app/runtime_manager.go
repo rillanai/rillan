@@ -6,7 +6,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/sidekickos/rillan/internal/httpapi"
+	"github.com/rillanai/rillan/internal/httpapi"
 )
 
 type runtimeState struct {

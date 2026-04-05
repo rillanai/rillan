@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/sidekickos/rillan/internal/config"
+	"github.com/rillanai/rillan/internal/config"
 	"github.com/spf13/cobra"
 )
 

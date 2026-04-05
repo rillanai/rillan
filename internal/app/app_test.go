@@ -9,8 +9,8 @@ import (
 
 	keyring "github.com/zalando/go-keyring"
 
-	"github.com/sidekickos/rillan/internal/config"
-	"github.com/sidekickos/rillan/internal/secretstore"
+	"github.com/rillanai/rillan/internal/config"
+	"github.com/rillanai/rillan/internal/secretstore"
 )
 
 func TestNewRejectsEnabledServerAuthWithoutResolvableBearer(t *testing.T) {

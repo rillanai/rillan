@@ -8,8 +8,8 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/sidekickos/rillan/internal/chat"
-	internalopenai "github.com/sidekickos/rillan/internal/openai"
+	"github.com/rillanai/rillan/internal/chat"
+	internalopenai "github.com/rillanai/rillan/internal/openai"
 )
 
 func TestClientChatCompletionsRunsCommandAndReturnsSyntheticResponse(t *testing.T) {

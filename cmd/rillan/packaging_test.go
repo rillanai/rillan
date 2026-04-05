@@ -8,12 +8,12 @@ import (
 )
 
 func TestLaunchdPackagingArtifactContainsExpectedServiceContract(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("..", "..", "packaging", "launchd", "com.sidekickos.rillan.plist"))
+	data, err := os.ReadFile(filepath.Join("..", "..", "packaging", "launchd", "com.rillanai.rillan.plist"))
 	if err != nil {
 		t.Fatalf("ReadFile returned error: %v", err)
 	}
 	content := string(data)
-	for _, want := range []string{"com.sidekickos.rillan", "rillan\" serve --config", "__RILLAN_WORKDIR__", "RunAtLoad", "KeepAlive"} {
+	for _, want := range []string{"com.rillanai.rillan", "rillan\" serve --config", "__RILLAN_WORKDIR__", "RunAtLoad", "KeepAlive"} {
 		if !strings.Contains(content, want) {
 			t.Fatalf("launchd artifact missing %q:\n%s", want, content)
 		}

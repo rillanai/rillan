@@ -3,7 +3,7 @@ package agent
 import (
 	"testing"
 
-	"github.com/sidekickos/rillan/internal/policy"
+	"github.com/rillanai/rillan/internal/policy"
 )
 
 func TestDecideExecutionModeChoosesPlannerForPlanFirst(t *testing.T) {

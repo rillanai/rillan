@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/sidekickos/rillan/internal/index"
+	"github.com/rillanai/rillan/internal/index"
 )
 
 const (

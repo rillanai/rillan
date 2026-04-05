@@ -16,16 +16,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sidekickos/rillan/internal/agent"
-	"github.com/sidekickos/rillan/internal/audit"
-	"github.com/sidekickos/rillan/internal/chat"
-	"github.com/sidekickos/rillan/internal/config"
-	"github.com/sidekickos/rillan/internal/index"
-	internalopenai "github.com/sidekickos/rillan/internal/openai"
-	"github.com/sidekickos/rillan/internal/policy"
-	"github.com/sidekickos/rillan/internal/providers"
-	"github.com/sidekickos/rillan/internal/retrieval"
-	"github.com/sidekickos/rillan/internal/routing"
+	"github.com/rillanai/rillan/internal/agent"
+	"github.com/rillanai/rillan/internal/audit"
+	"github.com/rillanai/rillan/internal/chat"
+	"github.com/rillanai/rillan/internal/config"
+	"github.com/rillanai/rillan/internal/index"
+	internalopenai "github.com/rillanai/rillan/internal/openai"
+	"github.com/rillanai/rillan/internal/policy"
+	"github.com/rillanai/rillan/internal/providers"
+	"github.com/rillanai/rillan/internal/retrieval"
+	"github.com/rillanai/rillan/internal/routing"
 )
 
 type fakeProvider struct {

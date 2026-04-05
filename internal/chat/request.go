@@ -1,7 +1,7 @@
 package chat
 
 import (
-	internalopenai "github.com/sidekickos/rillan/internal/openai"
+	internalopenai "github.com/rillanai/rillan/internal/openai"
 )
 
 type Request = internalopenai.ChatCompletionRequest

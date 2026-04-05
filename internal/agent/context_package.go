@@ -3,7 +3,7 @@ package agent
 import (
 	"encoding/json"
 
-	"github.com/sidekickos/rillan/internal/policy"
+	"github.com/rillanai/rillan/internal/policy"
 )
 
 type ContextPackage struct {

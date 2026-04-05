@@ -1,6 +1,6 @@
 # Rillan Agent Guidance
 
-This file is for coding agents working in `github.com/sidekickos/rillan`.
+This file is for coding agents working in `github.com/rillanai/rillan`.
 
 Start with these source-of-truth docs before making non-trivial changes:
 

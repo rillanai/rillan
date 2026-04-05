@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sidekickos/rillan/internal/config"
+	"github.com/rillanai/rillan/internal/config"
 )
 
 func TestDefaultEvaluatorEvaluate(t *testing.T) {

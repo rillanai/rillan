@@ -6,9 +6,9 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/sidekickos/rillan/internal/agent"
-	skilltools "github.com/sidekickos/rillan/internal/agent/skills"
-	internalopenai "github.com/sidekickos/rillan/internal/openai"
+	"github.com/rillanai/rillan/internal/agent"
+	skilltools "github.com/rillanai/rillan/internal/agent/skills"
+	internalopenai "github.com/rillanai/rillan/internal/openai"
 )
 
 type AgentTaskHandler struct {

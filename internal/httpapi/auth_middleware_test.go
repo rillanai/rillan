@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sidekickos/rillan/internal/config"
-	"github.com/sidekickos/rillan/internal/observability"
+	"github.com/rillanai/rillan/internal/config"
+	"github.com/rillanai/rillan/internal/observability"
 )
 
 func TestWrapProtectedEndpointBypassesAuthWhenDisabled(t *testing.T) {

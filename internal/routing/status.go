@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sidekickos/rillan/internal/config"
-	"github.com/sidekickos/rillan/internal/providers"
-	"github.com/sidekickos/rillan/internal/secretstore"
+	"github.com/rillanai/rillan/internal/config"
+	"github.com/rillanai/rillan/internal/providers"
+	"github.com/rillanai/rillan/internal/secretstore"
 )
 
 type UnavailableReasonCode string

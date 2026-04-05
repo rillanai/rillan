@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sidekickos/rillan/internal/chat"
-	"github.com/sidekickos/rillan/internal/config"
-	"github.com/sidekickos/rillan/internal/observability"
+	"github.com/rillanai/rillan/internal/chat"
+	"github.com/rillanai/rillan/internal/config"
+	"github.com/rillanai/rillan/internal/observability"
 )
 
 const (

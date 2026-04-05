@@ -3,12 +3,12 @@ package httpapi
 import (
 	"context"
 
-	"github.com/sidekickos/rillan/internal/classify"
-	"github.com/sidekickos/rillan/internal/config"
-	"github.com/sidekickos/rillan/internal/modules"
-	"github.com/sidekickos/rillan/internal/providers"
-	"github.com/sidekickos/rillan/internal/retrieval"
-	"github.com/sidekickos/rillan/internal/routing"
+	"github.com/rillanai/rillan/internal/classify"
+	"github.com/rillanai/rillan/internal/config"
+	"github.com/rillanai/rillan/internal/modules"
+	"github.com/rillanai/rillan/internal/providers"
+	"github.com/rillanai/rillan/internal/retrieval"
+	"github.com/rillanai/rillan/internal/routing"
 )
 
 type RuntimeSnapshot struct {

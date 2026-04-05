@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sidekickos/rillan/internal/secretstore"
+	"github.com/rillanai/rillan/internal/secretstore"
 	"gopkg.in/yaml.v3"
 )
 
@@ -758,9 +758,29 @@ func ResolveProjectConfigPath(root string) string {
 func DefaultSystemConfigPath() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
+		return filepath.Join(".rillan", "system.yaml")
+	}
+	return filepath.Join(home, ".rillan", "system.yaml")
+}
+
+func LegacySystemConfigPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
 		return filepath.Join(".sidekick", "system.yaml")
 	}
 	return filepath.Join(home, ".sidekick", "system.yaml")
+}
+
+func ResolveSystemConfigPath() string {
+	preferred := DefaultSystemConfigPath()
+	if _, err := os.Stat(preferred); err == nil {
+		return preferred
+	}
+	legacy := LegacySystemConfigPath()
+	if _, err := os.Stat(legacy); err == nil {
+		return legacy
+	}
+	return preferred
 }
 
 func DefaultDataDir() string {

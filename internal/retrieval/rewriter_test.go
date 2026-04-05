@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/sidekickos/rillan/internal/ollama"
+	"github.com/rillanai/rillan/internal/ollama"
 )
 
 func TestOllamaQueryRewriterReturnsRewrittenQuery(t *testing.T) {

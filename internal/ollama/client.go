@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sidekickos/rillan/internal/observability"
+	"github.com/rillanai/rillan/internal/observability"
 )
 
 // Client is a thin HTTP client for the Ollama native API.

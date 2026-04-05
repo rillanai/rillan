@@ -8,12 +8,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/sidekickos/rillan/internal/audit"
-	"github.com/sidekickos/rillan/internal/config"
-	"github.com/sidekickos/rillan/internal/httpapi"
-	"github.com/sidekickos/rillan/internal/observability"
-	"github.com/sidekickos/rillan/internal/policy"
-	"github.com/sidekickos/rillan/internal/providers"
+	"github.com/rillanai/rillan/internal/audit"
+	"github.com/rillanai/rillan/internal/config"
+	"github.com/rillanai/rillan/internal/httpapi"
+	"github.com/rillanai/rillan/internal/observability"
+	"github.com/rillanai/rillan/internal/policy"
+	"github.com/rillanai/rillan/internal/providers"
 )
 
 type App struct {
