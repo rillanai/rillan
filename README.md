@@ -153,7 +153,12 @@ Repo-local ADRs are in [`adrs/`](adrs/):
 
 ## Deployment
 
-Systemd and launchd unit files are in `packaging/`:
+Systemd, launchd, and Windows packaging assets are in `packaging/`:
 
-- `packaging/systemd/` -- Linux service files
-- `packaging/launchd/` -- macOS plist daemon files
+- `packaging/systemd/` -- Linux user and system service files
+- `packaging/launchd/` -- macOS LaunchAgent plist
+- `packaging/windows/` -- Windows installer/service wrapper templates
+- `packaging/install/` -- Ollama bootstrap scripts for Linux/macOS/Windows
+
+Release automation uses GoReleaser (`.goreleaser.yaml`) and GitHub Actions workflows in `.github/workflows/`.
+See `packaging/README.md` for artifact details and `RELEASE_TODO.md` for production release hardening steps.

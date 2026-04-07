@@ -1,52 +1,35 @@
-# Rillan User-Service Packaging
+# Rillan Packaging and Install Media
 
-These artifacts package `rillan serve` as a user-level service without adding custom daemonization logic to the binary.
+This directory contains cross-platform packaging assets for running `rillan serve` as an operating-system service and installing local inference dependencies.
 
-## Shared service contract
+## Goals covered
 
-- managed process: `rillan serve`
-- config path: user-local runtime config
-- local API binding remains unchanged from foreground mode
-- logs stay OS-native (`launchd` file targets on macOS, journal on Linux)
-- Ollama remains separately managed
+- Build cross-platform binaries with GoReleaser.
+- Produce Linux `.deb` and `.rpm` packages.
+- Produce archive artifacts for macOS and Windows.
+- Provide install-media builder scripts for macOS (`.dmg`) and Windows (`.exe` installer).
+- Install Ollama during package install flows (best effort).
+- Ship service definitions for system service management.
 
-## macOS launchd
+## Service definitions
 
-Artifact:
+### Linux (system-wide systemd)
 
-- `packaging/launchd/com.rillanai.rillan.plist`
+- Unit file: `packaging/systemd/rillan.system.service`
+- Installed by Linux packages to: `/usr/lib/systemd/system/rillan.service`
+- Runs as dedicated `rillan` system user.
 
-Preparation:
+Linux package post-install script:
 
-- replace `__RILLAN_WORKDIR__` with the intended working directory before install
-- ensure `~/.local/bin/rillan` and `~/.config/rillan/config.yaml` exist or adjust the command to match your layout
+- creates `rillan` system user if needed
+- creates `/var/lib/rillan`
+- installs Ollama (best effort)
+- enables and starts `rillan.service` (best effort)
 
-Validation:
+### Linux (user systemd)
 
-```bash
-plutil -lint packaging/launchd/com.rillanai.rillan.plist
-```
-
-Install / start:
-
-```bash
-cp packaging/launchd/com.rillanai.rillan.plist ~/Library/LaunchAgents/
-launchctl bootstrap gui/$UID ~/Library/LaunchAgents/com.rillanai.rillan.plist
-launchctl print gui/$UID/com.rillanai.rillan
-```
-
-Stop / uninstall:
-
-```bash
-launchctl bootout gui/$UID ~/Library/LaunchAgents/com.rillanai.rillan.plist
-rm ~/Library/LaunchAgents/com.rillanai.rillan.plist
-```
-
-## Linux systemd --user
-
-Artifact:
-
-- `packaging/systemd/rillan.service`
+- Unit file: `packaging/systemd/rillan.service`
+- Intended for local non-root usage.
 
 Validation:
 
@@ -72,6 +55,44 @@ rm ~/.config/systemd/user/rillan.service
 systemctl --user daemon-reload
 ```
 
+### macOS (launchd user agent)
+
+- LaunchAgent: `packaging/launchd/com.rillanai.rillan.plist`
+- Default command: `$HOME/.local/bin/rillan serve --config $HOME/.config/rillan/config.yaml`
+
+Validation:
+
+```bash
+plutil -lint packaging/launchd/com.rillanai.rillan.plist
+```
+
+Install / start:
+
+```bash
+cp packaging/launchd/com.rillanai.rillan.plist ~/Library/LaunchAgents/
+launchctl bootstrap gui/$UID ~/Library/LaunchAgents/com.rillanai.rillan.plist
+launchctl print gui/$UID/com.rillanai.rillan
+```
+
+Stop / uninstall:
+
+```bash
+launchctl bootout gui/$UID ~/Library/LaunchAgents/com.rillanai.rillan.plist
+rm ~/Library/LaunchAgents/com.rillanai.rillan.plist
+```
+
+### Windows (service wrapper template)
+
+- Wrapper XML template: `packaging/windows/rillan-service.xml`
+- Installer script for Ollama: `packaging/install/install-ollama.ps1`
+
+## Ollama installers
+
+- Unix-like: `packaging/install/install-ollama.sh`
+- Windows: `packaging/install/install-ollama.ps1`
+
+Both scripts are idempotent and skip installation when `ollama` already exists on `PATH`.
+
 ## Foreground parity check
 
 The packaged service should expose the same API behavior as foreground mode:
@@ -82,7 +103,44 @@ curl http://127.0.0.1:8420/healthz
 curl http://127.0.0.1:8420/readyz
 ```
 
+## GoReleaser outputs
+
+Configured in `.goreleaser.yaml`:
+
+- binaries for `linux`, `darwin`, and `windows` (`amd64`, `arm64`)
+- archives (`tar.gz` on Unix-like systems, `.zip` on Windows)
+- Linux packages (`.deb` + `.rpm`) via `nfpm`
+- checksums and draft GitHub release creation
+
+Run a local snapshot build:
+
+```bash
+goreleaser release --snapshot --clean
+```
+
+## Install media generation
+
+GoReleaser handles most artifacts. Additional install media builders are provided:
+
+- macOS DMG builder: `packaging/macos/build-dmg.sh`
+- Windows EXE builder (Inno Setup): `packaging/windows/build-installer.ps1`
+
+These are intended to be wired into CI release jobs after GoReleaser produces per-platform archives.
+
+## CI workflows
+
+- `.github/workflows/ci.yml`
+  - `go mod tidy` consistency check
+  - `go test ./...`
+  - `go build ./...`
+  - GoReleaser snapshot smoke test
+
+- `.github/workflows/release.yml`
+  - release on `v*` tags using GoReleaser
+  - keyless cosign signature for `checksums.txt`
+  - GitHub artifact attestation for `checksums.txt`
+
 ## Notes
 
-- These are user-level service artifacts, not root/system-wide installers.
-- Release signing and artifact provenance are intentionally outside this milestone.
+- Package signing, macOS notarization, and Windows Authenticode signing are tracked in `RELEASE_TODO.md`.
+- Windows service registration is environment-specific and should be finalized in release hardening.

@@ -1,0 +1,19 @@
+[Unit]
+Description=Rillan local OpenAI-compatible proxy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=rillan
+Group=rillan
+ExecStart=/usr/bin/rillan serve --config /etc/rillan/config.yaml
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

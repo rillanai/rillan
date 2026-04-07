@@ -1,0 +1,13 @@
+<service>
+  <id>rillan</id>
+  <name>Rillan</name>
+  <description>Rillan local OpenAI-compatible proxy</description>
+  <executable>%BASE%\\rillan.exe</executable>
+  <arguments>serve --config %ProgramData%\\rillan\\config.yaml</arguments>
+  <workingdirectory>%ProgramData%\\rillan</workingdirectory>
+  <onfailure action="restart" delay="5 sec" />
+  <log mode="roll-by-size">
+    <sizeThreshold>10485760</sizeThreshold>
+    <keepFiles>5</keepFiles>
+  </log>
+</service>

@@ -1,0 +1,95 @@
+version: 2
+
+project_name: rillan
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - id: rillan
+    main: ./cmd/rillan
+    binary: rillan
+    env:
+      - CGO_ENABLED=1
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/rillanai/rillan/internal/version.Version={{ .Version }}
+      - -X github.com/rillanai/rillan/internal/version.Commit={{ .Commit }}
+      - -X github.com/rillanai/rillan/internal/version.Date={{ .Date }}
+
+archives:
+  - id: binaries
+    ids:
+      - rillan
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    files:
+      - README.md
+      - NOTICES
+      - src: packaging/launchd/com.rillanai.rillan.plist
+        strip_parent: true
+      - src: packaging/systemd/rillan.service
+        strip_parent: true
+      - src: packaging/windows/rillan-service.xml
+        strip_parent: true
+      - src: packaging/install/install-ollama.sh
+        strip_parent: true
+      - src: packaging/install/install-ollama.ps1
+        strip_parent: true
+    format_overrides:
+      - goos: windows
+        format: zip
+
+nfpms:
+  - id: linux_packages
+    ids:
+      - rillan
+    package_name: rillan
+    vendor: rillanai
+    homepage: https://github.com/rillanai/rillan
+    maintainer: Rillan Maintainers <maintainers@rillan.ai>
+    description: Rillan local-first OpenAI-compatible control plane daemon
+    license: Apache-2.0
+    formats:
+      - deb
+      - rpm
+    bindir: /usr/bin
+    contents:
+      - src: packaging/systemd/rillan.system.service
+        dst: /usr/lib/systemd/system/rillan.service
+      - src: configs/rillan.example.yaml
+        dst: /etc/rillan/config.yaml
+        type: config
+      - src: packaging/install/install-ollama.sh
+        dst: /usr/share/rillan/install-ollama.sh
+        file_info:
+          mode: 0755
+      - src: packaging/README.md
+        dst: /usr/share/doc/rillan/packaging.md
+    scripts:
+      postinstall: packaging/install/linux-postinstall.sh
+      preremove: packaging/install/linux-preremove.sh
+
+checksum:
+  name_template: checksums.txt
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  use: github
+
+release:
+  github:
+    owner: rillanai
+    name: rillan
+  draft: true
