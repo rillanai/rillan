@@ -135,6 +135,10 @@ These are intended to be wired into CI release jobs after GoReleaser produces pe
   - `go build ./...`
   - GoReleaser snapshot smoke test
 
+- `.github/workflows/release-please.yml`
+  - manages version PRs on `main`
+  - creates release tags and GitHub releases from conventional commits
+
 - `.github/workflows/release.yml`
   - release on `v*` tags using GoReleaser
   - keyless cosign signature for `checksums.txt`

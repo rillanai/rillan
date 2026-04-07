@@ -160,5 +160,5 @@ Systemd, launchd, and Windows packaging assets are in `packaging/`:
 - `packaging/windows/` -- Windows installer/service wrapper templates
 - `packaging/install/` -- Ollama bootstrap scripts for Linux/macOS/Windows
 
-Release automation uses GoReleaser (`.goreleaser.yaml`) and GitHub Actions workflows in `.github/workflows/`.
+Release automation uses Release Please for versioning/tagging and GoReleaser for artifact publishing via GitHub Actions workflows in `.github/workflows/`.
 See `packaging/README.md` for artifact details and `RELEASE_TODO.md` for production release hardening steps.

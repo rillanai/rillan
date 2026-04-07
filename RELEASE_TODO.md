@@ -5,8 +5,8 @@ This checklist tracks work required to move from functional packaging to product
 ## 1) GitHub repository/release plumbing
 
 - [ ] Create branch protection for `main` and require CI (`CI` workflow).
-- [ ] Restrict who can push tags matching `v*`.
-- [ ] Document release process (`vX.Y.Z` tag -> release workflow) in `docs/development.md`.
+- [ ] Restrict who can push tags matching `v*` (Release Please should be the only automation path).
+- [ ] Document release process (`release-please` PR merge -> tag -> release workflow) in `docs/development.md`.
 - [ ] Add environment protection rules for release jobs (manual approvals if required).
 
 ## 2) Secrets and identities
