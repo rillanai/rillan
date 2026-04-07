@@ -470,6 +470,15 @@ func applyDerivedDefaults(cfg *Config, configPath string) {
 	if cfg.Index.ChunkSizeLines == 0 {
 		cfg.Index.ChunkSizeLines = DefaultConfig().Index.ChunkSizeLines
 	}
+	if strings.TrimSpace(cfg.KnowledgeGraph.AutoUpdate) == "" {
+		cfg.KnowledgeGraph.AutoUpdate = DefaultConfig().KnowledgeGraph.AutoUpdate
+	}
+	if cfg.KnowledgeGraph.TraversalDepth == 0 {
+		cfg.KnowledgeGraph.TraversalDepth = DefaultConfig().KnowledgeGraph.TraversalDepth
+	}
+	if cfg.KnowledgeGraph.MaxNodes == 0 {
+		cfg.KnowledgeGraph.MaxNodes = DefaultConfig().KnowledgeGraph.MaxNodes
+	}
 	if cfg.Retrieval.TopK == 0 {
 		cfg.Retrieval.TopK = DefaultConfig().Retrieval.TopK
 	}
@@ -508,6 +517,9 @@ func applyDerivedDefaults(cfg *Config, configPath string) {
 	}
 	if cfg.Index.Root != "" {
 		cfg.Index.Root = resolveIndexRoot(configPath, cfg.Index.Root)
+	}
+	if cfg.KnowledgeGraph.Path != "" {
+		cfg.KnowledgeGraph.Path = resolveProjectPath(configPath, cfg.KnowledgeGraph.Path)
 	}
 	for i := range cfg.Agent.ApprovedRepoRoots {
 		cfg.Agent.ApprovedRepoRoots[i] = resolveProjectPath(configPath, cfg.Agent.ApprovedRepoRoots[i])
@@ -633,6 +645,12 @@ func applyEnvOverrides(cfg *Config) {
 	applyCSVEnv(&cfg.Index.Includes, "RILLAN_INDEX_INCLUDES")
 	applyCSVEnv(&cfg.Index.Excludes, "RILLAN_INDEX_EXCLUDES")
 	applyIntEnv(&cfg.Index.ChunkSizeLines, "RILLAN_INDEX_CHUNK_SIZE_LINES")
+	applyBoolEnv(&cfg.KnowledgeGraph.Enabled, "RILLAN_KNOWLEDGE_GRAPH_ENABLED")
+	applyStringEnv(&cfg.KnowledgeGraph.Path, "RILLAN_KNOWLEDGE_GRAPH_PATH")
+	applyStringEnv(&cfg.KnowledgeGraph.AutoUpdate, "RILLAN_KNOWLEDGE_GRAPH_AUTO_UPDATE")
+	applyIntEnv(&cfg.KnowledgeGraph.TraversalDepth, "RILLAN_KNOWLEDGE_GRAPH_TRAVERSAL_DEPTH")
+	applyBoolEnv(&cfg.KnowledgeGraph.IncludeInferred, "RILLAN_KNOWLEDGE_GRAPH_INCLUDE_INFERRED")
+	applyIntEnv(&cfg.KnowledgeGraph.MaxNodes, "RILLAN_KNOWLEDGE_GRAPH_MAX_NODES")
 	applyBoolEnv(&cfg.Retrieval.Enabled, "RILLAN_RETRIEVAL_ENABLED")
 	applyIntEnv(&cfg.Retrieval.TopK, "RILLAN_RETRIEVAL_TOP_K")
 	applyIntEnv(&cfg.Retrieval.MaxContextChars, "RILLAN_RETRIEVAL_MAX_CONTEXT_CHARS")

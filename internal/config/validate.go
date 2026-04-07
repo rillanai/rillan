@@ -125,6 +125,17 @@ func ValidateForMode(cfg Config, mode ValidationMode) error {
 	if cfg.Index.ChunkSizeLines < 1 {
 		return fmt.Errorf("index.chunk_size_lines must be greater than zero")
 	}
+	switch normalizeString(cfg.KnowledgeGraph.AutoUpdate) {
+	case "none", "poll", "watch":
+	default:
+		return fmt.Errorf("knowledge_graph.auto_update must be one of none, poll, or watch")
+	}
+	if cfg.KnowledgeGraph.TraversalDepth < 0 {
+		return fmt.Errorf("knowledge_graph.traversal_depth must be zero or greater")
+	}
+	if cfg.KnowledgeGraph.MaxNodes < 1 {
+		return fmt.Errorf("knowledge_graph.max_nodes must be greater than zero")
+	}
 	if cfg.Retrieval.TopK < 1 {
 		return fmt.Errorf("retrieval.top_k must be greater than zero")
 	}

@@ -53,17 +53,18 @@ const (
 // Schema v2 keeps named LLM and MCP registries alongside the legacy provider
 // shape that the current runtime still consumes internally.
 type Config struct {
-	SchemaVersion int                `yaml:"schema_version,omitempty"`
-	Server        ServerConfig       `yaml:"server"`
-	Provider      ProviderConfig     `yaml:"provider"`
-	Index         IndexConfig        `yaml:"index"`
-	Retrieval     RetrievalConfig    `yaml:"retrieval"`
-	Runtime       RuntimeConfig      `yaml:"runtime"`
-	LocalModel    LocalModelConfig   `yaml:"local_model"`
-	Agent         AgentRuntimeConfig `yaml:"agent"`
-	Auth          AuthConfig         `yaml:"auth,omitempty"`
-	LLMs          LLMRegistryConfig  `yaml:"llms,omitempty"`
-	MCPs          MCPRegistryConfig  `yaml:"mcps,omitempty"`
+	SchemaVersion  int                  `yaml:"schema_version,omitempty"`
+	Server         ServerConfig         `yaml:"server"`
+	Provider       ProviderConfig       `yaml:"provider"`
+	Index          IndexConfig          `yaml:"index"`
+	KnowledgeGraph KnowledgeGraphConfig `yaml:"knowledge_graph,omitempty"`
+	Retrieval      RetrievalConfig      `yaml:"retrieval"`
+	Runtime        RuntimeConfig        `yaml:"runtime"`
+	LocalModel     LocalModelConfig     `yaml:"local_model"`
+	Agent          AgentRuntimeConfig   `yaml:"agent"`
+	Auth           AuthConfig           `yaml:"auth,omitempty"`
+	LLMs           LLMRegistryConfig    `yaml:"llms,omitempty"`
+	MCPs           MCPRegistryConfig    `yaml:"mcps,omitempty"`
 }
 
 // AuthConfig stores non-secret control-plane auth metadata.
@@ -301,6 +302,15 @@ type IndexConfig struct {
 	ChunkSizeLines int      `yaml:"chunk_size_lines"`
 }
 
+type KnowledgeGraphConfig struct {
+	Enabled         bool   `yaml:"enabled,omitempty"`
+	Path            string `yaml:"path,omitempty"`
+	AutoUpdate      string `yaml:"auto_update,omitempty"`
+	TraversalDepth  int    `yaml:"traversal_depth,omitempty"`
+	IncludeInferred bool   `yaml:"include_inferred,omitempty"`
+	MaxNodes        int    `yaml:"max_nodes,omitempty"`
+}
+
 type RuntimeConfig struct {
 	VectorStoreMode   string `yaml:"vector_store_mode"`
 	LocalModelBaseURL string `yaml:"local_model_base_url"`
@@ -357,6 +367,13 @@ func DefaultConfig() Config {
 		Index: IndexConfig{
 			Excludes:       []string{".git", "node_modules", ".direnv", ".idea"},
 			ChunkSizeLines: 120,
+		},
+		KnowledgeGraph: KnowledgeGraphConfig{
+			Enabled:         false,
+			AutoUpdate:      "none",
+			TraversalDepth:  1,
+			IncludeInferred: true,
+			MaxNodes:        2000,
 		},
 		Retrieval: RetrievalConfig{
 			Enabled:         false,

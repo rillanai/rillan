@@ -13,6 +13,7 @@ import (
 
 func newIndexCommand() *cobra.Command {
 	var configPath string
+	var graphifyPath string
 
 	cmd := &cobra.Command{
 		Use:   "index",
@@ -21,6 +22,10 @@ func newIndexCommand() *cobra.Command {
 			cfg, err := config.LoadWithMode(configPath, config.ValidationModeIndex)
 			if err != nil {
 				return err
+			}
+			if graphifyPath != "" {
+				cfg.KnowledgeGraph.Enabled = true
+				cfg.KnowledgeGraph.Path = graphifyPath
 			}
 
 			logger := newLogger(cfg.Server.LogLevel)
@@ -46,6 +51,7 @@ func newIndexCommand() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&configPath, "config", config.DefaultConfigPath(), "Path to the runtime config file")
+	cmd.Flags().StringVar(&graphifyPath, "graphify-path", "", "Optional path to Graphify output directory for this indexing run")
 
 	return cmd
 }

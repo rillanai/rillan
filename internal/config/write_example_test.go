@@ -29,6 +29,9 @@ func TestWriteExampleConfigWritesStarterConfig(t *testing.T) {
 	if !strings.Contains(content, "index:") {
 		t.Fatalf("starter config missing index block: %s", content)
 	}
+	if !strings.Contains(content, "knowledge_graph:") {
+		t.Fatalf("starter config missing knowledge_graph block: %s", content)
+	}
 	if !strings.Contains(content, "session_ref: \"keyring://rillan/auth/daemon\"") {
 		t.Fatalf("starter config missing daemon auth session ref: %s", content)
 	}

@@ -63,6 +63,34 @@ func TestIndexCommandFailsWhenLocalModelConfiguredButUnreachable(t *testing.T) {
 	}
 }
 
+func TestIndexCommandAcceptsGraphifyPathOverride(t *testing.T) {
+	root := t.TempDir()
+	mustWriteCommandTestFile(t, filepath.Join(root, "a.go"), "package main\n\nfunc main() {}\n")
+	graphRoot := t.TempDir()
+	mustWriteCommandTestFile(t, filepath.Join(graphRoot, "graph.json"), `{"nodes":[{"id":"n1"}],"edges":[]}`)
+	t.Setenv("XDG_DATA_HOME", filepath.Join(t.TempDir(), "data"))
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/":
+			w.WriteHeader(http.StatusOK)
+		case "/api/embed":
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{"embeddings": [][]float64{{0.1, 0.2, 0.3}}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	configPath := writeIndexTestConfig(t, root, server.URL, true)
+	cmd := newIndexCommand()
+	cmd.SetArgs([]string{"--config", configPath, "--graphify-path", graphRoot})
+	if err := cmd.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("ExecuteContext returned error: %v", err)
+	}
+}
+
 func writeIndexTestConfig(t *testing.T, root string, baseURL string, enabled bool) string {
 	t.Helper()
 

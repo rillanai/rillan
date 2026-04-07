@@ -61,6 +61,10 @@ func newStatusCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			graphifyStatus, err := index.ReadGraphifyStatus(cfg.KnowledgeGraph)
+			if err != nil {
+				return err
+			}
 
 			retrievalMode := "disabled"
 			if cfg.Retrieval.Enabled {
@@ -68,7 +72,7 @@ func newStatusCommand() *cobra.Command {
 			}
 			auditLedgerPath := audit.DefaultLedgerPath()
 
-			_, err = fmt.Fprintf(cmd.OutOrStdout(), "configured_root: %s\nlast_attempt_state: %s\nlast_attempt_root: %s\nlast_attempt_at: %s\nlast_attempt_error: %s\ncommitted_root: %s\ncommitted_last_indexed_at: %s\ndocuments: %d\nchunks: %d\nvectors: %d\ndb_path: %s\nsystem_config_path: %s\nsystem_config_state: %s\naudit_ledger_path: %s\nretrieval_enabled: %t\nretrieval_mode: %s\nmodules_discovered: %d\nmodules_enabled: %d\nmodule_ids: %s\n",
+			_, err = fmt.Fprintf(cmd.OutOrStdout(), "configured_root: %s\nlast_attempt_state: %s\nlast_attempt_root: %s\nlast_attempt_at: %s\nlast_attempt_error: %s\ncommitted_root: %s\ncommitted_last_indexed_at: %s\ndocuments: %d\nchunks: %d\nvectors: %d\ndb_path: %s\nsystem_config_path: %s\nsystem_config_state: %s\naudit_ledger_path: %s\nretrieval_enabled: %t\nretrieval_mode: %s\nknowledge_graph_enabled: %t\nknowledge_graph_path: %s\nknowledge_graph_present: %t\nknowledge_graph_nodes: %d\nknowledge_graph_edges: %d\nknowledge_graph_sha256: %s\nmodules_discovered: %d\nmodules_enabled: %d\nmodule_ids: %s\n",
 				emptyFallback(status.ConfiguredRootPath, "not configured"),
 				emptyFallback(status.LastAttemptState, index.RunStatusNeverIndexed),
 				emptyFallback(status.LastAttemptRootPath, "none"),
@@ -85,6 +89,12 @@ func newStatusCommand() *cobra.Command {
 				auditLedgerPath,
 				cfg.Retrieval.Enabled,
 				retrievalMode,
+				graphifyStatus.Enabled,
+				emptyFallback(graphifyStatus.Path, "not configured"),
+				graphifyStatus.Present,
+				graphifyStatus.Nodes,
+				graphifyStatus.Edges,
+				emptyFallback(graphifyStatus.SHA256, "none"),
 				len(discoveredModules.Modules),
 				len(enabledModules.Modules),
 				moduleIDs(enabledModules),

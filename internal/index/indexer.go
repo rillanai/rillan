@@ -61,6 +61,12 @@ func Rebuild(ctx context.Context, cfg config.Config, logger *slog.Logger, opts .
 		_ = store.RecordRunCompletion(ctx, runID, RunStatusFailed, 0, 0, 0, err.Error())
 		return Status{}, err
 	}
+	graphFiles, err := DiscoverGraphifyFiles(cfg.KnowledgeGraph)
+	if err != nil {
+		_ = store.RecordRunCompletion(ctx, runID, RunStatusFailed, 0, 0, 0, err.Error())
+		return Status{}, err
+	}
+	files = append(files, graphFiles...)
 
 	documents := make([]DocumentRecord, 0, len(files))
 	chunks := make([]ChunkRecord, 0)
