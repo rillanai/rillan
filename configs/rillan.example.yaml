@@ -52,6 +52,14 @@ index:
     - ".idea"
   chunk_size_lines: 120
 
+knowledge_graph:
+  enabled: false
+  path: ""
+  auto_update: "none"
+  traversal_depth: 1
+  include_inferred: true
+  max_nodes: 2000
+
 retrieval:
   enabled: false
   top_k: 4
