@@ -1,5 +1,7 @@
 .idea/
 .sisyphus/
+.claude/
+.codex
 .DS_Store
 /rillan
 coverage.out
