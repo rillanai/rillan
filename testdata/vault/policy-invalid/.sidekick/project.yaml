@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Rillan AI LLC
+# SPDX-License-Identifier: Apache-2.0
+
 name: "broken-project"
 classification: "not-a-real-classification"
 

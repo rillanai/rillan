@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 Rillan AI
+// SPDX-FileCopyrightText: 2026 Rillan AI LLC
 // SPDX-License-Identifier: Apache-2.0
 
 //! `rillan` CLI entry point. Mirrors `cmd/rillan` in the Go repo.

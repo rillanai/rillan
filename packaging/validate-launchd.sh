@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 Rillan AI LLC
+# SPDX-License-Identifier: Apache-2.0
+
 set -euo pipefail
 
 if command -v plutil >/dev/null 2>&1; then

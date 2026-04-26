@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 Rillan AI
+// SPDX-FileCopyrightText: 2026 Rillan AI LLC
 // SPDX-License-Identifier: Apache-2.0
 
 //! Thin async client for the Ollama native HTTP API. Mirrors

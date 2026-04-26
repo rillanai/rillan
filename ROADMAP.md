@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 Rillan AI LLC -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # Rillan Rust Port — Roadmap
 
 This file tracks the gap between this Rust crate and the upstream Go reference at `../rillan`. Items below are ordered roughly by milestone.

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 Rillan AI
+// SPDX-FileCopyrightText: 2026 Rillan AI LLC
 // SPDX-License-Identifier: Apache-2.0
 
 //! `rillan mcp` — manage named MCP endpoints. Mirrors `cmd/rillan/mcp.go`.

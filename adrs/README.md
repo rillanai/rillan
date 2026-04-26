@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 Rillan AI LLC -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # Rillan Repository ADRs
 
 These ADRs capture implementation decisions made inside this repository as milestone one and milestone two take shape. They are intentionally narrower than the higher-level product ADRs in `../../resources/rillan/adrs/`.

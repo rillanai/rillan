@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 Rillan AI LLC -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # Architecture
 
 This document describes Rillan's internal structure, package responsibilities, and data flow. It is intended for developers working on or integrating with the codebase.

@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 Rillan AI LLC -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # Audit Execution Backlog
 
 This backlog translates the completed audit into executable tickets.

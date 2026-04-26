@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 Rillan AI LLC -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # Rillan (Rust)
 
 Every AI-powered dev tool you use — Claude Code, Cursor, Copilot, opencode — sends your code, your prompts, and your context to a remote API. You trust each tool to handle credentials, route to the right model, and not leak trade secrets. That trust is implicit, spread across a dozen configs, and invisible when it breaks.

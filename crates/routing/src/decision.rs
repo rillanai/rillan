@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 Rillan AI
+// SPDX-FileCopyrightText: 2026 Rillan AI LLC
 // SPDX-License-Identifier: Apache-2.0
 
 //! Decision engine. Mirrors `internal/routing/decision.go`.

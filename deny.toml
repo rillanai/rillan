@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Rillan AI LLC
+# SPDX-License-Identifier: Apache-2.0
+
 # cargo-deny configuration. Run with: `cargo deny check`.
 # Mirrors the Go repo's discipline of locking down licensing and avoiding
 # accidental inclusion of unmaintained or duplicated dependencies.

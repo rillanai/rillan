@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 Rillan AI LLC -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # Command-Native Setup Guide
 
 This guide covers the M07.5 operator workflow for configuring Rillan. The preferred path is CLI commands rather than hand-editing YAML or relying on environment variables.

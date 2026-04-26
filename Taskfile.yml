@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Rillan AI LLC
+# SPDX-License-Identifier: Apache-2.0
+
 version: "3"
 
 # Task runner for rillan-rust. Mirrors the Go repo's `go test ./...` /

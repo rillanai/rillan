@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 Rillan AI LLC -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # Rillan User-Service Packaging
 
 These artifacts package `rillan serve` as a user-level service without adding custom daemonization logic to the binary.
