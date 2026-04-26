@@ -1,0 +1,89 @@
+version: "3"
+
+# Task runner for rillan-rust. Mirrors the Go repo's `go test ./...` /
+# `go build ./...` flows but in Rust idioms. Prefer Task over Make per repo
+# convention.
+
+tasks:
+  default:
+    desc: List available tasks.
+    cmds:
+      - task --list
+
+  build:
+    desc: Build the workspace.
+    cmds:
+      - cargo build --workspace --all-targets
+
+  build:release:
+    desc: Build a release binary.
+    cmds:
+      - cargo build --workspace --release
+
+  test:
+    desc: Run the full test suite.
+    cmds:
+      - cargo test --workspace --all-features
+
+  test:race:
+    desc: Run tests under address sanitizer (substantive code changes).
+    cmds:
+      - RUSTFLAGS="-Z sanitizer=address" cargo +nightly test --workspace --target x86_64-unknown-linux-gnu
+
+  fmt:
+    desc: Format the workspace.
+    cmds:
+      - cargo fmt --all
+
+  fmt:check:
+    desc: Check formatting (CI gate).
+    cmds:
+      - cargo fmt --all -- --check
+
+  lint:
+    desc: Run clippy with the workspace lint config (CI gate).
+    cmds:
+      - cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+  deny:
+    desc: Audit licenses and advisories.
+    cmds:
+      - cargo deny check
+
+  cover:
+    desc: Generate coverage report (requires cargo-llvm-cov).
+    cmds:
+      - cargo llvm-cov --workspace --all-features --html
+
+  cover:summary:
+    desc: Print coverage summary (requires cargo-llvm-cov).
+    cmds:
+      - cargo llvm-cov --workspace --all-features --summary-only
+
+  ci:
+    desc: Run the full pre-commit gate (fmt, lint, build, test).
+    cmds:
+      - task: fmt:check
+      - task: lint
+      - task: build
+      - task: test
+
+  run:init:
+    desc: Write a starter config (cargo run -- init).
+    cmds:
+      - cargo run -p rillan -- init {{.CLI_ARGS}}
+
+  run:serve:
+    desc: Start the daemon (cargo run -- serve).
+    cmds:
+      - cargo run -p rillan -- serve {{.CLI_ARGS}}
+
+  run:status:
+    desc: Show daemon and config status.
+    cmds:
+      - cargo run -p rillan -- status {{.CLI_ARGS}}
+
+  tidy:
+    desc: Run cargo update --workspace and re-resolve.
+    cmds:
+      - cargo update --workspace

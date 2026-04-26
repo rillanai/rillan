@@ -1,0 +1,45 @@
+[package]
+name = "rillan-httpapi"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "HTTP router, handlers, and middleware for the Rillan daemon."
+
+[dependencies]
+axum = { workspace = true }
+bytes = { workspace = true }
+http = { workspace = true }
+http-body-util = { workspace = true }
+async-trait = { workspace = true }
+rillan-agent = { workspace = true }
+rillan-audit = { workspace = true }
+rillan-chat = { workspace = true }
+rillan-classify = { workspace = true }
+rillan-config = { workspace = true }
+rillan-modules = { workspace = true }
+rillan-observability = { workspace = true }
+rillan-ollama = { workspace = true }
+rillan-openai = { workspace = true }
+rillan-policy = { workspace = true }
+rillan-providers = { workspace = true }
+rillan-retrieval = { workspace = true }
+rillan-routing = { workspace = true }
+rillan-secretstore = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tower = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+futures = { workspace = true }
+rillan-index = { workspace = true }
+tempfile = { workspace = true }
+wiremock = { workspace = true }
+
+[lints]
+workspace = true

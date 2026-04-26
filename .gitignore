@@ -1,0 +1,21 @@
+/target/
+**/*.rs.bk
+.idea/
+.vscode/
+.sisyphus/
+.claude/
+.codex
+.DS_Store
+/rillan
+coverage.out
+*.cover
+*.profraw
+*.profdata
+testdata/tmp/
+*.local.yaml
+*.log
+
+# graphify
+graphify-out/
+.graphify_*
+raw/

@@ -1,0 +1,17 @@
+[package]
+name = "rillan-tokenize"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Deterministic outbound tokenizer (cl100k_base / o200k_base). ADR-012."
+
+[dependencies]
+thiserror = { workspace = true }
+tiktoken-rs = { workspace = true }
+tracing = { workspace = true }
+
+[lints]
+workspace = true

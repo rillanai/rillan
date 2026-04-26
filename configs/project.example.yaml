@@ -1,0 +1,32 @@
+name: "example-project"
+classification: "open_source"
+
+sources:
+  - path: "cmd"
+    type: "go"
+  - path: "internal"
+    type: "go"
+
+routing:
+  default: "auto"
+  task_types:
+    code_generation: "prefer_local"
+    review: "prefer_local"
+
+providers:
+  llm_default: "openai"
+  llm_allowed: ["openai"]
+  mcp_enabled: []
+
+modules:
+  enabled: []
+
+agent:
+  skills:
+    enabled: []
+
+system_prompt: ""
+
+instructions:
+  - "Keep outbound context tightly bounded to the current task."
+  - "Never include credentials, tokens, or unrelated proprietary material in outbound requests."

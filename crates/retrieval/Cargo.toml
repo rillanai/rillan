@@ -1,0 +1,29 @@
+[package]
+name = "rillan-retrieval"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Hybrid retrieval pipeline with reciprocal rank fusion. ADR-009."
+
+[dependencies]
+async-trait = { workspace = true }
+rillan-chat = { workspace = true }
+rillan-config = { workspace = true }
+rillan-index = { workspace = true }
+rillan-ollama = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+wiremock = { workspace = true }
+
+[lints]
+workspace = true

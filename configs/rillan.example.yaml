@@ -1,0 +1,87 @@
+schema_version: 2
+
+server:
+  host: "127.0.0.1"
+  port: 8420
+  log_level: "info"
+  allow_non_loopback_bind: false
+  auth:
+    enabled: false
+    auth_strategy: "api_key"
+    session_ref: "keyring://rillan/auth/daemon"
+
+auth:
+  rillan:
+    endpoint: ""
+    auth_strategy: ""
+    session_ref: "keyring://rillan/auth/control-plane"
+
+llms:
+  default: "openai"
+  providers:
+    - id: "openai"
+      preset: "openai"
+      backend: "openai_compatible"
+      transport: "http"
+      endpoint: "https://api.openai.com/v1"
+      auth_strategy: "api_key"
+      default_model: "gpt-5"
+      capabilities: ["chat", "reasoning", "tool_calling"]
+      credential_ref: "keyring://rillan/llm/openai"
+    - id: "anthropic"
+      preset: "anthropic"
+      backend: "anthropic"
+      transport: "http"
+      endpoint: "https://api.anthropic.com"
+      auth_strategy: "api_key"
+      default_model: "claude-sonnet-4-5"
+      capabilities: ["chat", "reasoning", "tool_calling"]
+      credential_ref: "keyring://rillan/llm/anthropic"
+
+mcps:
+  default: ""
+  servers: []
+
+index:
+  root: ""
+  includes: []
+  excludes:
+    - ".git"
+    - "node_modules"
+    - ".direnv"
+    - ".idea"
+  chunk_size_lines: 120
+
+knowledge_graph:
+  enabled: false
+  path: ""
+  auto_update: "none"
+  traversal_depth: 1
+  include_inferred: true
+  max_nodes: 2000
+
+retrieval:
+  enabled: false
+  top_k: 4
+  max_context_chars: 6000
+
+local_model:
+  enabled: false
+  base_url: "http://127.0.0.1:11434"
+  embed_model: "nomic-embed-text"
+  query_rewrite:
+    enabled: false
+    model: "qwen3:0.6b"
+
+runtime:
+  vector_store_mode: "embedded"
+  local_model_base_url: "http://127.0.0.1:11434"
+
+agent:
+  enabled: false
+  approved_repo_roots: []
+  mcp:
+    enabled: false
+    read_only: true
+    max_open_files: 8
+    max_diagnostics: 20

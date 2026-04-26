@@ -1,0 +1,116 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/version",
+    "crates/openai",
+    "crates/chat",
+    "crates/secretstore",
+    "crates/observability",
+    "crates/policy",
+    "crates/config",
+    "crates/audit",
+    "crates/modules",
+    "crates/tokenize",
+    "crates/ollama",
+    "crates/classify",
+    "crates/routing",
+    "crates/index",
+    "crates/retrieval",
+    "crates/agent",
+    "crates/providers",
+    "crates/httpapi",
+    "crates/app",
+    "crates/rillan",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.78"
+license = "Apache-2.0"
+authors = ["Rillan AI"]
+repository = "https://github.com/rillanai/rillan-rust"
+publish = false
+
+[workspace.dependencies]
+# Workspace member crates (named to mirror the Go internal/ packages).
+rillan-version = { path = "crates/version" }
+rillan-openai = { path = "crates/openai" }
+rillan-chat = { path = "crates/chat" }
+rillan-secretstore = { path = "crates/secretstore" }
+rillan-observability = { path = "crates/observability" }
+rillan-policy = { path = "crates/policy" }
+rillan-config = { path = "crates/config" }
+rillan-audit = { path = "crates/audit" }
+rillan-modules = { path = "crates/modules" }
+rillan-tokenize = { path = "crates/tokenize" }
+rillan-ollama = { path = "crates/ollama" }
+rillan-classify = { path = "crates/classify" }
+rillan-routing = { path = "crates/routing" }
+rillan-index = { path = "crates/index" }
+rillan-retrieval = { path = "crates/retrieval" }
+rillan-agent = { path = "crates/agent" }
+rillan-providers = { path = "crates/providers" }
+rillan-httpapi = { path = "crates/httpapi" }
+rillan-app = { path = "crates/app" }
+
+# Third-party.
+anyhow = "1"
+async-trait = "0.1"
+axum = { version = "0.7", default-features = false, features = ["json", "tokio", "http1", "matched-path"] }
+bytes = "1"
+clap = { version = "4", features = ["derive", "env"] }
+dirs = "5"
+futures = { version = "0.3", default-features = false, features = ["std"] }
+hex = "0.4"
+http = "1"
+http-body-util = "0.1"
+hyper = { version = "1", features = ["server", "http1"] }
+keyring = { version = "3", default-features = false, features = ["linux-native", "apple-native", "windows-native"] }
+rand = "0.8"
+regex = "1"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+serde_yaml = "0.9"
+sha2 = "0.10"
+thiserror = "1"
+time = { version = "0.3", features = ["formatting", "macros", "parsing"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "sync", "net", "io-util", "fs", "time", "process"] }
+tower = { version = "0.5", default-features = false, features = ["util"] }
+tower-http = { version = "0.5", default-features = false, features = ["trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "env-filter", "json"] }
+tiktoken-rs = "0.6"
+url = "2"
+walkdir = "2"
+which = "6"
+rusqlite = { version = "0.32", features = ["bundled"] }
+aes-gcm = "0.10"
+base64 = "0.22"
+arc-swap = "1"
+
+# Test-only.
+tempfile = "3"
+wiremock = "0.6"
+
+[workspace.lints.rust]
+# Treat all warnings as errors during CI; matches Go's vet+staticcheck strictness.
+unsafe_code = "forbid"
+unreachable_pub = "warn"
+missing_debug_implementations = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
+
+[workspace.lints.clippy]
+# Match the Go repo's "no half-finished implementations / no speculative
+# abstractions" stance. `clippy::all` covers the correctness, suspicious, and
+# style groups. We intentionally do NOT enable `pedantic` or `nursery` at the
+# workspace level — they generate too much noise during a port that is
+# tracking the Go reference implementation. Re-enable per-crate when a
+# specific lint pays for itself.
+all = { level = "deny", priority = -1 }
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
+strip = "symbols"

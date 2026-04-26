@@ -1,0 +1,21 @@
+[package]
+name = "rillan-routing"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "Deterministic routing decision engine and provider status catalog. ADR-005."
+
+[dependencies]
+rillan-config = { workspace = true }
+rillan-policy = { workspace = true }
+rillan-providers = { workspace = true }
+rillan-secretstore = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+
+[lints]
+workspace = true

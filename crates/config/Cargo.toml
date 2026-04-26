@@ -1,0 +1,29 @@
+[package]
+name = "rillan-config"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+description = "YAML config loading, env overrides, validation modes, and default-paths resolution."
+
+[dependencies]
+aes-gcm = { workspace = true }
+base64 = { workspace = true }
+dirs = { workspace = true }
+hex = { workspace = true }
+rillan-secretstore = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+rand = { workspace = true }
+serde_json = { workspace = true }
+tempfile = { workspace = true }
+
+[lints]
+workspace = true

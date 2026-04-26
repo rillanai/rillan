@@ -1,0 +1,14 @@
+server:
+  host: "127.0.0.1"
+  port: 8420
+  log_level: "info"
+
+provider:
+  type: "openai"
+  openai:
+    base_url: "https://api.openai.com/v1"
+    api_key: "test-openai-key"
+
+runtime:
+  vector_store_mode: "embedded"
+  local_model_base_url: "http://127.0.0.1:11434"
