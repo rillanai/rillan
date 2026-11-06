@@ -3,13 +3,13 @@
 
 # Rillan Rust Port — Roadmap
 
-This file tracks the gap between this Rust crate and the upstream Go reference at `../rillan`. Items below are ordered roughly by milestone.
+This file tracks Rust-port parity with the upstream Go reference and intended product work beyond that parity. Portable agent workstream continuity is a foundational Rillan use case; it is not delivered by the ported proxy and agent primitives. See the [use case and continuity contract](docs/workstream-continuity.md), [requirements](docs/requirements.md), and [architecture boundaries](docs/architecture.md#workstream-continuity-boundaries).
 
 ## ✅ Delivered
 
 ### Foundations + Standards
 - Workspace + standards: `rust-toolchain.toml`, `rustfmt.toml`, workspace clippy lints (`-D warnings` on `clippy::all`), `deny.toml`, `Taskfile.yml`, repo-level `AGENTS.md` + `CLAUDE.md`.
-- ADRs, docs, configs, packaging units, and testdata copied verbatim from the Go repo.
+- ADRs, docs, configs, packaging units, and testdata initially copied from the Go repo; architecture and continuity documentation now distinguish the Rust implementation from intended requirements.
 
 ### Library crates
 - `rillan-version` — build metadata (`VERSION`, `COMMIT`, `DATE`, `string()`).
@@ -46,10 +46,27 @@ End-to-end smoke:
 
 ## 🚧 Not yet ported
 
-The Go repo has ~22.5k LoC across 153 files. The slice above hits parity for almost every functional layer; the remaining gaps are non-blocking polish items rather than missing functionality.
+The remaining Go-parity gaps listed here are separate from the undelivered workstream continuity capability below. Porting the existing agent and provider layers does not supply checkpointing or session portability.
 
 1. **`rillan config get/set/list`** — the Rust port mirrors the Go stub (`not implemented yet`). When the upstream lands a real schema-aware editor, port it.
 2. **Daemon-side post-mutation refresh** — `rillan llm`, `rillan mcp`, and `rillan auth` write to the on-disk config but don't yet POST `/admin/runtime/refresh` afterwards. The endpoint exists; the CLIs need a small `notify_daemon_runtime_refresh` helper so edits take effect without a restart.
+
+## C1: Explicit workstream handoff
+
+**Status: intended milestone, not implemented.** This is the first continuity milestone, separate from the delivered proxy/indexing milestones. Its [bounded scope](docs/workstream-continuity.md#first-milestone-scope) targets Codex CLI to Codex CLI between WSL 2, macOS, and native Linux, one source and one destination per explicit handoff. Exact tested CLI/OS versions and architectures must be recorded before claiming support. Reconstructed continuation is the minimum fidelity; native resume is conditional on documented provider support.
+
+Required outcomes:
+
+- [ ] Establish a safe stopping point and preserve durable intent, corrections, decisions, progress, and approval boundaries without a user-written handoff summary.
+- [ ] Capture multiple repositories through RepoKeeper identities, including required base commits, branch/worktree identity, separate staged and unstaged changes, and relevant untracked contents; no WIP commit required.
+- [ ] Resolve and validate all destination checkouts, prerequisites, tools, and MCP capabilities before restoring or continuing; preserve unrelated destination work.
+- [ ] Keep credentials, local trust/configuration, and processes local; a completed checkpoint remains usable after the source locks or becomes unavailable.
+- [ ] Make ownership, interrupted-transfer recovery, retries, conflicts, and achieved fidelity explicit. An ambiguous owner blocks continuation.
+- [ ] Pass [acceptance scenarios A1–A4 and the C1 portion of A5](docs/workstream-continuity.md#acceptance-scenarios), including operation under network policy without Tailscale or an always-on host.
+
+Before implementation, resolve the [durable-state and responsibility questions](docs/workstream-continuity.md#unresolved-design-questions). Required outcomes do not select leases, a storage format, a transfer protocol, or a new orchestration component.
+
+Later continuity work includes Claude/GPT cross-provider continuation and additional native-resume adapters, with explicit fidelity differences and no migration of hidden model state or live processes. Cross-provider acceptance in A5 remains a product requirement outside C1; arbitrary provider conversion, background synchronization, and concurrent editing are outside the first milestone.
 
 ## Test parity check
 
