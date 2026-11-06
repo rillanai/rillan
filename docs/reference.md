@@ -5,6 +5,10 @@
 
 Quick-reference tables for the Rillan CLI, HTTP API, configuration, and file layout.
 
+## Workstream continuity status
+
+Cross-machine agent continuity is a [foundational use case](workstream-continuity.md) with an [intended requirements contract](requirements.md) and a [bounded first milestone](../ROADMAP.md#c1-explicit-workstream-handoff). It is not implemented by the CLI or HTTP endpoints below: there are no checkpoint, transfer, or session-resume commands/endpoints today. Provider selection, an agent context echo, and daemon runtime refresh do not resume an external Codex or Claude session. See the [architecture boundaries](architecture.md#workstream-continuity-boundaries) for the existing seams and unresolved ownership decisions.
+
 ## CLI Commands
 
 ### Core
